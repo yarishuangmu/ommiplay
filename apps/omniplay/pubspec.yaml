@@ -10,6 +10,7 @@ resolution: workspace
 
 dependencies:
   bonsoir: ^7.1.5
+  file_selector: ^1.1.0
   flutter:
     sdk: flutter
   media_kit: ^1.2.6
@@ -20,6 +21,8 @@ dependencies:
     path: ../../packages/node_core
   node_protocol:
     path: ../../packages/node_protocol
+  path_provider: ^2.1.6
+  sqlite3_flutter_libs: ^0.6.0+eol
   window_manager: ^0.5.2
 
 dev_dependencies:
