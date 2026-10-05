@@ -42,10 +42,16 @@ yes | flutter doctor --android-licenses
 ### 常见问题
 
 - **macOS 首启弹"本地网络"权限框**：必须允许，否则 mDNS 失效（UDP 信标仍可用）。
+- **macOS UDP 广播不可用**：Dart 未暴露 SO_BROADCAST，向 255.255.255.255 发送会异步 EACCES
+  （错误打在 socket 的 onError 上）。信标实现已用**组播 239.255.77.88** 作主通道、
+  广播从专用短命 socket 尽力而为；不要在主监听 socket 上直接发广播。
 - **Windows 防火墙**（未来平台）：首启需放行 47771 入站。
 - **端口被占**：日志会抛 SocketException；改 NodeConfig 端口或释放占用。
 - **PIN 一直无效**：PIN 5 分钟过期且一次性，用播放器页"刷新"重新生成。
 - **Android 上收不到信标**：已实现 MulticastLock（MainActivity），若仍失败属机型限制，走手动直连。
+- **Android 应用退后台后被杀**：M0 无前台服务，节点随进程死亡；遥控手机前保持其在前台。
+- **验证工具**：`cd packages/node_core && dart run tool/probe_node.dart <host> [port]`
+  可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）。
 
 ## 打包发布（M0）
 

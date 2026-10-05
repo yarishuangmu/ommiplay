@@ -14,8 +14,9 @@
 │ 角色层   Controller(浏览/遥控) ｜ Player(会话权威) ｜ Library(内容源)  │
 ├──────────────────────────────────────────────────────────────────┤
 │ node_core（纯 Dart，全端同一实现）                                    │
-│  发现(UDP 信标；mDNS 适配器注入)  配对(PIN+Ed25519/Web令牌)           │
-│  协议(WS 封套/epoch 接管)  播放会话(快照+续播)  流服务(HMAC+Range)    │
+│  发现(mDNS 适配器 + UDP 信标：组播 239.255.77.88 主通道/广播尽力而为) │
+│  配对(PIN+Ed25519/Web令牌)  协议(WS 封套/epoch 接管)                  │
+│  播放会话(快照+续播)  流服务(HMAC+Range)                              │
 │  存储(SQLite/WAL：meta、devices、progress)                           │
 ├──────────────────────────────────────────────────────────────────┤
 │ 平台能力  media_kit(libmpv) ｜ bonsoir(mDNS, Flutter 侧) ｜ shelf     │

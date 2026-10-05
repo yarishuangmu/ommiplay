@@ -74,7 +74,11 @@ class DiscoveryMerger implements DiscoveryChannel {
     _started = true;
     for (final channel in _channels) {
       _listen(channel);
-      await channel.start();
+      try {
+        await channel.start();
+      } on Object catch (_) {
+        // 单通道启动失败（端口/权限等）不拖垮节点启动，其余通道继续兜底。
+      }
     }
     _pruner = Timer.periodic(const Duration(seconds: 10), (_) => _prune());
   }
