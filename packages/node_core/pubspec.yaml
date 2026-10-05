@@ -1,0 +1,25 @@
+name: node_core
+description: OmniPlay 节点核心 —— 发现、配对、控制协议、播放会话与流服务。纯 Dart（FFI/Socket），不依赖 Flutter。
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+resolution: workspace
+
+dependencies:
+  crypto: ^3.0.7
+  cryptography: ^2.9.0
+  node_protocol:
+    path: ../node_protocol
+  path: ^1.9.1
+  shelf: ^1.4.2
+  shelf_router: ^1.1.4
+  shelf_web_socket: ^3.0.0
+  sqlite3: ^3.7.0
+  web_socket_channel: ^3.0.3
+
+dev_dependencies:
+  lints: ^6.0.0
+  test: ^1.25.0

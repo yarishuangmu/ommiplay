@@ -1,0 +1,12 @@
+# OmniPlay monorepo — pub workspace 根
+# 所有 Dart/Flutter 包共享一次依赖解析（根目录生成唯一 pubspec.lock）。
+name: media_hub_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - apps/omniplay
+  - packages/node_protocol
+  - packages/node_core

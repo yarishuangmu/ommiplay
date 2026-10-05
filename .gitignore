@@ -1,0 +1,45 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.g.dart.tmp
+# 注意：pub workspace 的根 pubspec.lock 是应用锁文件，需提交，勿忽略
+
+# Flutter Generated plugin registrant
+lib/generated_plugin_registrant.dart
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.DS_Store
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+*.jks
+*.keystore
+**/android/app/.cxx/
+
+# iOS / macOS (Flutter)
+**/macos/Flutter/ephemeral/
+**/ios/Flutter/ephemeral/
+
+# Node / web_control
+node_modules/
+web_control/dist/
+
+# Runtime data
+data/
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+
+# Logs
+*.log

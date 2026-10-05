@@ -1,0 +1,31 @@
+name: omniplay
+description: "OmniPlay 节点应用：macOS 播放器节点 + Android 控制器/播放器节点。"
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.4
+
+resolution: workspace
+
+dependencies:
+  bonsoir: ^7.1.5
+  flutter:
+    sdk: flutter
+  media_kit: ^1.2.6
+  media_kit_libs_android_video: ^1.3.8
+  media_kit_libs_macos_video: ^1.1.4
+  media_kit_video: ^2.0.1
+  node_core:
+    path: ../../packages/node_core
+  node_protocol:
+    path: ../../packages/node_protocol
+  window_manager: ^0.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

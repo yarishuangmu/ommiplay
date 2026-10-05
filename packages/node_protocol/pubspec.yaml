@@ -1,0 +1,9 @@
+name: node_protocol
+description: OmniPlay 节点间 WS 消息协议 —— 封套、消息族定义与 JSON 编解码（纯 Dart，无第三方依赖）。
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+resolution: workspace
