@@ -21,6 +21,7 @@ dependencies:
     path: ../../packages/node_core
   node_protocol:
     path: ../../packages/node_protocol
+  path: ^1.9.1
   path_provider: ^2.1.6
   sqlite3_flutter_libs: ^0.6.0+eol
   window_manager: ^0.5.2

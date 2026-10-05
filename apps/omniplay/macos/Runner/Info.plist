@@ -28,5 +28,11 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>OmniPlay 需要访问本地网络，以发现并控制家庭内的播放设备。</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_omniplay._tcp</string>
+	</array>
 </dict>
 </plist>

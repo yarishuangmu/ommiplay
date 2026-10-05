@@ -38,6 +38,9 @@ class PlayerSession {
 
   bool get hasAdapter => _adapter != null;
 
+  /// 当前挂载的播放内核（本机 UI 直操时复用）。
+  PlayerAdapter? get adapter => _adapter;
+
   void attach(PlayerAdapter adapter) {
     _sub?.cancel();
     _adapter = adapter;

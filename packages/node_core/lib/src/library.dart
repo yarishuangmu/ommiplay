@@ -11,6 +11,15 @@ class Library {
 
   final List<String> _roots;
 
+  /// 当前内容源根目录（持久化用）。
+  List<String> get roots => List.unmodifiable(_roots);
+
+  /// 运行时新增内容源（如用户在界面选择媒体目录）。
+  void addRoot(String dir) {
+    final normalized = p.normalize(dir);
+    if (!_roots.contains(normalized)) _roots.add(normalized);
+  }
+
   List<SourceInfo> get sources => [
         for (final root in _roots)
           SourceInfo(

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:node_protocol/src/envelope.dart';
 import 'package:node_protocol/src/messages.dart';
 
@@ -70,7 +72,10 @@ class Node {
       store.setMeta('family_id', identity.deviceId);
     }
     clock = HlcClock(identity.deviceId);
-    library = Library(config.mediaDirs);
+    final storedDirs = (store.getMeta('media_dirs') != null)
+        ? (jsonDecode(store.getMeta('media_dirs')!) as List).cast<String>()
+        : const <String>[];
+    library = Library([...config.mediaDirs, ...storedDirs]);
     pairing = PairingService();
     signer = StreamSigner(_streamSecret());
     session = PlayerSession(nodeId: identity.deviceId, clock: clock, store: store);
@@ -120,6 +125,12 @@ class Node {
 
   /// 当前有效 PIN（供 UI 展示；可能已过期为 null）。
   String? get currentPin => pairing.currentPin;
+
+  /// 新增本机内容源目录并持久化（Library 角色）。
+  void addMediaDir(String path) {
+    library.addRoot(path);
+    store.setMeta('media_dirs', jsonEncode(library.roots));
+  }
 
   String newPin() => pairing.newPin();
 
