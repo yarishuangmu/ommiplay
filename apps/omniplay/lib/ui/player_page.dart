@@ -80,7 +80,7 @@ class _SidePanel extends StatelessWidget {
       children: [
         _PinCard(model: model),
         const SizedBox(height: 12),
-        _MediaDirsCard(model: model),
+        _SourcesCard(model: model),
         const SizedBox(height: 12),
         Card(
           child: Padding(
@@ -138,8 +138,8 @@ class _PinCard extends StatelessWidget {
   }
 }
 
-class _MediaDirsCard extends StatelessWidget {
-  const _MediaDirsCard({required this.model});
+class _SourcesCard extends StatelessWidget {
+  const _SourcesCard({required this.model});
 
   final AppModel model;
 
@@ -154,30 +154,163 @@ class _MediaDirsCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('媒体目录（内容源）', style: Theme.of(context).textTheme.titleSmall),
+                Text('内容源', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 IconButton(
-                  tooltip: '添加目录',
-                  onPressed: () async {
-                    final path = await getDirectoryPath();
-                    if (path != null) model.addMediaDir(path);
-                  },
+                  tooltip: '添加内容源',
+                  onPressed: () => _showAddSheet(context),
                   icon: const Icon(Icons.add),
                 ),
               ],
             ),
             if (sources.isEmpty)
-              const Text('还没有内容源，点 + 选择文件夹（如 NAS 挂载点）', style: TextStyle(color: Colors.grey)),
+              const Text('还没有内容源，点 + 添加本地目录或 WebDAV 网络源',
+                  style: TextStyle(color: Colors.grey)),
             for (final source in sources)
               ListTile(
                 dense: true,
-                leading: const Icon(Icons.folder_outlined),
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(source.kind == 'webdav'
+                    ? Icons.cloud_outlined
+                    : Icons.folder_outlined),
                 title: Text(source.name),
-                subtitle: Text(source.root, overflow: TextOverflow.ellipsis),
+                subtitle: Text(
+                  source.kind == 'webdav' ? 'WebDAV · ${source.root}' : source.root,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                trailing: IconButton(
+                  tooltip: '移除',
+                  onPressed: () => model.removeSource(source.sourceId),
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Future<void> _showAddSheet(BuildContext context) async {
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.folder_outlined),
+              title: const Text('本地目录'),
+              subtitle: const Text('本机文件夹或已挂载的 SMB/NFS'),
+              onTap: () => Navigator.pop(sheetContext, 'folder'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.cloud_outlined),
+              title: const Text('WebDAV 网络源'),
+              subtitle: const Text('NAS / Alist 等网络存储'),
+              onTap: () => Navigator.pop(sheetContext, 'webdav'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (!context.mounted) return;
+    if (choice == 'folder') {
+      final path = await getDirectoryPath();
+      if (path != null) model.addMediaDir(path);
+    } else if (choice == 'webdav') {
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => _WebdavSourceDialog(model: model),
+      );
+    }
+  }
+}
+
+/// WebDAV 源添加表单（主机侧本地添加）。
+class _WebdavSourceDialog extends StatefulWidget {
+  const _WebdavSourceDialog({required this.model});
+
+  final AppModel model;
+
+  @override
+  State<_WebdavSourceDialog> createState() => _WebdavSourceDialogState();
+}
+
+class _WebdavSourceDialogState extends State<_WebdavSourceDialog> {
+  _WebdavSourceDialogState();
+
+  final _name = TextEditingController();
+  final _url = TextEditingController();
+  final _user = TextEditingController();
+  final _pass = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  Future<void> _submit() async {
+    if (_url.text.trim().isEmpty) {
+      setState(() => _error = '请填写 WebDAV 地址');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.model.addWebdavSource(
+        url: _url.text.trim(),
+        username: _user.text.trim(),
+        password: _pass.text,
+        name: _name.text.trim(),
+      );
+      if (mounted) Navigator.pop(context);
+    } on Object catch (e) {
+      setState(() {
+        _busy = false;
+        _error = '添加失败：$e';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('添加 WebDAV 网络源'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: _name, decoration: const InputDecoration(labelText: '名称（可选）')),
+            TextField(
+              controller: _url,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'WebDAV 地址',
+                hintText: 'http://nas:5005/dav/媒体/',
+              ),
+            ),
+            TextField(controller: _user, decoration: const InputDecoration(labelText: '账号（可选）')),
+            TextField(
+              controller: _pass,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: '密码（可选）'),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(_error!, style: const TextStyle(color: Colors.redAccent)),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
+        FilledButton(
+          onPressed: _busy ? null : _submit,
+          child: Text(_busy ? '验证中…' : '添加'),
+        ),
+      ],
     );
   }
 }

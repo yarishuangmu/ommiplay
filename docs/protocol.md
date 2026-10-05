@@ -59,9 +59,11 @@
 | `pair.pin.response` | `{ok,error?,nodeId?,nodeName?,familyId?,hostDevice?}` | `hostDevice` 为主机端设备记录 `{deviceId,name,pubKey}`，加入方必须落库（A2 互换语义） |
 | `pair.auth.request` | `{deviceId,sig}` 或 `{token}` | 挑战应答 / Web 令牌 |
 | `pair.auth.result` | `{ok,error?,nodeName?}` | |
-| `lib.sources` | `{sources:[{sourceId,name,root}], reqId?}` | 带 reqId 视为请求-响应 |
+| `lib.sources` | `{sources:[{sourceId,name,root,kind}], reqId?}` | 带 reqId 视为请求-响应；kind: folder\|webdav |
 | `lib.browse.request` | `{reqId,sourceId,dirPath}` | dirPath 为源内相对路径 |
 | `lib.browse.response` | `{reqId,ok,entries:[{name,path,isDir,sizeBytes?}]}` | 目录优先排序 |
+| `lib.source.add` | `{reqId,kind,name?,url?,username?,password?,path?}` | 远端添加内容源（kind: folder\|webdav）；webdav 添加时主机侧先 PROPFIND 校验 |
+| `lib.source.remove` | `{reqId,sourceId}` | 远端移除内容源 |
 | `lib.stream.request` | `{reqId,sourceId,path}` | |
 | `lib.stream.response` | `{reqId,ok,url?,localPath?,expiresAt?}` | url=`http://<lan>:47771/stream/<token>` |
 | `player.cmd.load` | `{kind:'file'\|'url', value, title?}` | kind=url 时 value 为签名流地址 |

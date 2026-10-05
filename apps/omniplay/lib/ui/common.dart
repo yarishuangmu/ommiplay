@@ -177,18 +177,31 @@ class _BrowseSheetState extends State<_BrowseSheet> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text('浏览并投片', style: Theme.of(context).textTheme.titleMedium),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Text('浏览并投片', style: Theme.of(context).textTheme.titleMedium),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: '在目标节点添加 WebDAV 网络源',
+                    onPressed: _addSourceDialog,
+                    icon: const Icon(Icons.add_link),
+                  ),
+                ],
+              ),
             ),
-            if (_sources != null && _sources!.length > 1)
+            if (_sources != null && _sources!.isNotEmpty)
               Wrap(
                 spacing: 6,
                 children: [
                   for (final source in _sources!)
-                    ChoiceChip(
-                      label: Text(source.name),
-                      selected: source == _currentSource,
-                      onSelected: (_) => _pickSource(source),
+                    GestureDetector(
+                      onLongPress: () => _confirmRemove(source),
+                      child: ChoiceChip(
+                        label: Text('${source.name} [${source.kind}]'),
+                        selected: source == _currentSource,
+                        onSelected: (_) => _pickSource(source),
+                      ),
                     ),
                 ],
               ),
@@ -227,5 +240,94 @@ class _BrowseSheetState extends State<_BrowseSheet> {
   String _parentOf(String dirPath) {
     final index = dirPath.lastIndexOf('/');
     return index <= 0 ? '' : dirPath.substring(0, index);
+  }
+
+  /// 远程添加 WebDAV 源（lib.source.add，作用于目标节点）。
+  Future<void> _addSourceDialog() async {
+    final name = TextEditingController();
+    final url = TextEditingController();
+    final user = TextEditingController();
+    final pass = TextEditingController();
+    final added = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('添加 WebDAV 网络源'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: name, decoration: const InputDecoration(labelText: '名称（可选）')),
+              TextField(
+                controller: url,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'WebDAV 地址',
+                  hintText: 'http://nas:5005/dav/媒体/',
+                ),
+              ),
+              TextField(controller: user, decoration: const InputDecoration(labelText: '账号（可选）')),
+              TextField(
+                controller: pass,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: '密码（可选）'),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('添加')),
+        ],
+      ),
+    );
+    if (added != true) return;
+    try {
+      final result = await widget.remote.addSource(
+        kind: 'webdav',
+        name: name.text.trim(),
+        url: url.text.trim(),
+        username: user.text.trim(),
+        password: pass.text,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result['ok'] == true
+            ? '已添加网络源'
+            : '添加失败：${result['error'] ?? ''}'),
+      ));
+      await _loadSources();
+    } on Object catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('添加失败：$e')));
+      }
+    }
+  }
+
+  Future<void> _confirmRemove(SourceInfo source) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text('移除「\${source.name}」？'),
+        content: const Text('仅从该节点移除内容源登记，不删除任何媒体文件。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('取消')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('移除')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await widget.remote.removeSource(sourceId: source.sourceId);
+      if (!mounted) return;
+      setState(() {
+        _sources = null;
+        _entries = null;
+      });
+      await _loadSources();
+    } on Object catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('移除失败：$e')));
+      }
+    }
   }
 }

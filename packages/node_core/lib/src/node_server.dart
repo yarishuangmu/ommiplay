@@ -16,6 +16,7 @@ import 'library.dart';
 import 'pairing.dart';
 import 'session.dart';
 import 'store.dart';
+import 'sources.dart';
 import 'stream_signer.dart';
 import 'utils.dart';
 
@@ -32,7 +33,14 @@ class NodeServer {
     required this.signer,
     this.webRoot,
     this.announceHost,
+    this.onSourceCommand,
   });
+
+  /// 远端内容源管理（lib.source.add/remove）委托给 Node 处理与持久化。
+  final Future<Map<String, Object?>?> Function(String type, Map<String, Object?> payload)?
+      onSourceCommand;
+
+  HttpClient? _upstreamClient;
 
   final String nodeId;
   final String nodeName;
@@ -54,6 +62,7 @@ class NodeServer {
   String lanUrl() => 'http://${_lanHost ?? '127.0.0.1'}:$boundPort';
 
   Future<int> start({required int port}) async {
+    _upstreamClient = HttpClient();
     _lanHost = announceHost ?? await detectLanAddress();
     final server = await shelf_io.serve(_router(), InternetAddress.anyIPv4, port);
     _httpServer = server;
@@ -67,6 +76,8 @@ class NodeServer {
     _peers.clear();
     await _httpServer?.close(force: true);
     _httpServer = null;
+    _upstreamClient?.close(force: true);
+    _upstreamClient = null;
   }
 
   Router _router() {
@@ -124,13 +135,22 @@ class NodeServer {
           peer.name = msg.pOrNull<String>('name') ?? peer.name;
           return;
         case MsgTypes.sources:
-          _reply(peer, msg.type, _sourcesPayload(), reqId: msg.pOrNull<String>('reqId'));
+          _reply(peer, msg.type, sourcesPayload(), reqId: msg.pOrNull<String>('reqId'));
           return;
         case MsgTypes.browseRequest:
           await _onBrowse(peer, msg);
           return;
         case MsgTypes.streamRequest:
           await _onStreamRequest(peer, msg);
+          return;
+        case MsgTypes.sourceAdd:
+        case MsgTypes.sourceRemove:
+          final result = await onSourceCommand?.call(msg.type, msg.payload);
+          if (result == null) {
+            _send(peer, MsgTypes.error, {'code': 'not-supported', 'message': msg.type});
+          } else {
+            _reply(peer, msg.type, result, reqId: msg.pOrNull<String>('reqId'));
+          }
           return;
         case MsgTypes.playerTakeover:
           session.takeover(id: peer.deviceId ?? peer.hashCode.toString(), name: peer.name);
@@ -242,7 +262,7 @@ class NodeServer {
   Future<void> _onBrowse(_Peer peer, Msg msg) async {
     final reqId = msg.pOrNull<String>('reqId');
     try {
-      final entries = library.browse(
+      final entries = await library.browse(
         sourceId: msg.p<String>('sourceId'),
         dirPath: msg.pOrNull<String>('dirPath') ?? '',
       );
@@ -261,17 +281,14 @@ class NodeServer {
   Future<void> _onStreamRequest(_Peer peer, Msg msg) async {
     final reqId = msg.pOrNull<String>('reqId');
     try {
-      final absolute = library.resolveFile(
-        sourceId: msg.p<String>('sourceId'),
-        path: msg.p<String>('path'),
-      );
       final sourceId = msg.p<String>('sourceId');
       final relative = msg.p<String>('path');
+      final ref = await library.resolveStream(sourceId: sourceId, path: relative);
       final token = signer.sign(sourceId: sourceId, path: relative);
       _reply(peer, MsgTypes.streamResponse, {
         'ok': true,
         'url': '${lanUrl()}/stream/$token',
-        'localPath': absolute,
+        if (ref.kind == 'local') 'localPath': ref.localPath,
         'expiresAt': DateTime.now().add(const Duration(hours: 2)).toIso8601String(),
       }, reqId: reqId);
     } on Object catch (e) {
@@ -279,7 +296,7 @@ class NodeServer {
     }
   }
 
-  Map<String, Object?> _sourcesPayload() => {
+  Map<String, Object?> sourcesPayload() => {
         'sources': library.sources.map((s) => s.toJson()).toList(),
       };
 
@@ -292,7 +309,7 @@ class NodeServer {
       protoVer: protocolVersion,
       httpPort: boundPort,
     ).toJson());
-    _send(peer, MsgTypes.sources, _sourcesPayload());
+    _send(peer, MsgTypes.sources, sourcesPayload());
     _send(peer, MsgTypes.playerState, session.toPayload().toJson());
   }
 
@@ -356,13 +373,43 @@ class NodeServer {
     if (verified == null) {
       return shelf.Response(403, body: 'invalid stream token');
     }
-    String absolute;
+    StreamRef ref;
     try {
-      absolute = library.resolveFile(sourceId: verified.sourceId, path: verified.path);
+      ref = await library.resolveStream(sourceId: verified.sourceId, path: verified.path);
     } on Object {
       return shelf.Response(404, body: 'file not found');
     }
-    return _serveFile(request, absolute);
+    if (ref.kind == 'remote') {
+      return _proxyRemote(request, ref);
+    }
+    return _serveFile(request, ref.localPath!);
+  }
+
+  /// 网络源代理：Range 透传 + 认证头附加（凭据不出源节点）。
+  Future<shelf.Response> _proxyRemote(shelf.Request request, StreamRef ref) async {
+    try {
+      final upstream = await _upstreamClient!
+          .openUrl('GET', Uri.parse(ref.remoteUrl!))
+          .timeout(const Duration(seconds: 8));
+      ref.headers.forEach(upstream.headers.set);
+      final range = request.headers['range'];
+      if (range != null) upstream.headers.set(HttpHeaders.rangeHeader, range);
+      final response = await upstream.close().timeout(const Duration(seconds: 10));
+
+      final headers = <String, String>{
+        'accept-ranges': 'bytes',
+        'content-type': response.headers.contentType?.toString() ?? 'application/octet-stream',
+      };
+      response.headers.forEach((name, values) {
+        if (name.toLowerCase() == 'content-range' ||
+            name.toLowerCase() == 'content-length') {
+          headers[name] = values.first;
+        }
+      });
+      return shelf.Response(response.statusCode, body: response, headers: headers);
+    } on Object {
+      return shelf.Response(502, body: 'upstream error');
+    }
   }
 
   Future<shelf.Response> _staticRoute(shelf.Request request, String path) async {

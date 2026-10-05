@@ -19,6 +19,8 @@ export 'src/pairing.dart';
 export 'src/player_adapter.dart';
 export 'src/player_remote.dart';
 export 'src/session.dart';
+export 'src/sources.dart';
+export 'src/webdav.dart';
 export 'src/store.dart';
 export 'src/stream_signer.dart';
 export 'src/udp_beacon.dart';

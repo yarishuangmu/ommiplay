@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:node_core/src/library.dart';
+import 'package:node_core/src/sources.dart';
 import 'package:node_core/src/stream_signer.dart';
 import 'package:node_core/src/utils.dart';
 import 'package:path/path.dart' as p;
@@ -41,7 +42,7 @@ void main() {
       File('${tempDir.path}/剧集/a.mkv').writeAsBytesSync(List.filled(64, 1));
       File('${tempDir.path}/b.mp4').writeAsBytesSync(List.filled(32, 2));
       File('${tempDir.path}/.hidden').writeAsStringSync('x');
-      library = Library([tempDir.path]);
+      library = Library([FolderSource(tempDir.path)]);
     });
 
     tearDown(() => tempDir.deleteSync(recursive: true));
@@ -53,33 +54,34 @@ void main() {
       expect(sources.first.sourceId, isNotEmpty);
     });
 
-    test('browse 目录优先、隐藏文件过滤、相对路径正确', () {
+    test('browse 目录优先、隐藏文件过滤、相对路径正确', () async {
       final source = library.sources.first;
-      final entries = library.browse(sourceId: source.sourceId, dirPath: '');
+      final entries = await library.browse(sourceId: source.sourceId, dirPath: '');
       expect(entries.map((e) => e.name), ['剧集', 'b.mp4']);
       expect(entries.first.isDir, isTrue);
 
-      final sub = library.browse(sourceId: source.sourceId, dirPath: '剧集');
+      final sub = await library.browse(sourceId: source.sourceId, dirPath: '剧集');
       expect(sub.single.name, 'a.mkv');
       expect(sub.single.sizeBytes, 64);
     });
 
-    test('路径越界被拒绝', () {
+    test('路径越界被拒绝', () async {
       final source = library.sources.first;
-      expect(
-        () => library.browse(sourceId: source.sourceId, dirPath: '../..'),
+      await expectLater(
+        library.browse(sourceId: source.sourceId, dirPath: '../..'),
         throwsArgumentError,
       );
-      expect(
-        () => library.resolveFile(sourceId: source.sourceId, path: '../../etc/passwd'),
+      await expectLater(
+        library.resolveStream(sourceId: source.sourceId, path: '../../etc/passwd'),
         throwsArgumentError,
       );
     });
 
-    test('resolveFile 返回绝对路径', () {
+    test('resolveStream 返回本机文件流描述', () async {
       final source = library.sources.first;
-      final absolute = library.resolveFile(sourceId: source.sourceId, path: 'b.mp4');
-      expect(File(absolute).existsSync(), isTrue);
+      final ref = await library.resolveStream(sourceId: source.sourceId, path: 'b.mp4');
+      expect(ref.kind, 'local');
+      expect(File(ref.localPath!).existsSync(), isTrue);
     });
   });
 

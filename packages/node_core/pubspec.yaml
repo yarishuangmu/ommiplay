@@ -19,6 +19,7 @@ dependencies:
   shelf_web_socket: ^3.0.0
   sqlite3: ^3.7.0
   web_socket_channel: ^3.0.3
+  xml: ^7.1.0
 
 dev_dependencies:
   lints: ^6.0.0

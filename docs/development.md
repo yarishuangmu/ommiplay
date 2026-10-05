@@ -51,7 +51,11 @@ yes | flutter doctor --android-licenses
 - **Android 上收不到信标**：已实现 MulticastLock（MainActivity），若仍失败属机型限制，走手动直连。
 - **Android 应用退后台后被杀**：M0 无前台服务，节点随进程死亡；遥控手机前保持其在前台。
 - **验证工具**：`cd packages/node_core && dart run tool/probe_node.dart <host> [port]`
-  可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）。
+  可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）；
+  `dart run tool/link_check.dart <host>` 用本机节点身份验证配对互信与控制面。
+- **网络源（WebDAV）**：Mac 端「内容源」卡片或手机浏览面板（右上 +）添加，填 `http://nas:5005/dav/媒体/`
+  形式地址+账号密码；凭据明文存本节点 SQLite（v1 家庭威胁模型），播放流经源节点代理转发（凭据不下发给播放器）。
+  SMB 建议继续用 OS 挂载当本地目录。
 
 ## 打包发布（M0）
 

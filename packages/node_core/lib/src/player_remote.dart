@@ -275,6 +275,35 @@ class PlayerRemote {
   }
 
   /// 请求一个可直接投给目标播放器的流地址（本机是播放器时用 localPath；跨节点用 url）。
+  /// 远端添加内容源（kind: folder|webdav）。返回 {ok, source?}。
+  Future<Map<String, Object?>> addSource({
+    required String kind,
+    String? name,
+    String? url,
+    String? username,
+    String? password,
+    String? path,
+  }) =>
+      request(
+        MsgTypes.sourceAdd,
+        {
+          'kind': kind,
+          if (name != null) 'name': name,
+          if (url != null) 'url': url,
+          if (username != null) 'username': username,
+          if (password != null) 'password': password,
+          if (path != null) 'path': path,
+        },
+        responseType: MsgTypes.sourceAdd,
+      );
+
+  /// 远端移除内容源。
+  Future<Map<String, Object?>> removeSource({required String sourceId}) => request(
+        MsgTypes.sourceRemove,
+        {'sourceId': sourceId},
+        responseType: MsgTypes.sourceRemove,
+      );
+
   Future<({String? url, String? localPath})> requestStream({
     required String sourceId,
     required String path,

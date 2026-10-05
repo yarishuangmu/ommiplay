@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:node_protocol/src/envelope.dart';
 import 'package:node_protocol/src/messages.dart';
@@ -9,6 +10,7 @@ import 'discovery.dart';
 import 'identity.dart';
 import 'library.dart';
 import 'node_server.dart';
+import 'sources.dart';
 import 'pairing.dart';
 import 'player_adapter.dart';
 import 'session.dart';
@@ -75,7 +77,16 @@ class Node {
     final storedDirs = (store.getMeta('media_dirs') != null)
         ? (jsonDecode(store.getMeta('media_dirs')!) as List).cast<String>()
         : const <String>[];
-    library = Library([...config.mediaDirs, ...storedDirs]);
+    final storedSourceConfigs = (store.getMeta('media_sources') != null)
+        ? (jsonDecode(store.getMeta('media_sources')!) as List)
+            .map((e) => Map<String, Object?>.from(e as Map))
+            .map(ContentSource.fromConfig)
+            .toList()
+        : <ContentSource>[];
+    library = Library([
+      ...[...config.mediaDirs, ...storedDirs].map(FolderSource.new),
+      ...storedSourceConfigs,
+    ]);
     pairing = PairingService();
     signer = StreamSigner(_streamSecret());
     session = PlayerSession(nodeId: identity.deviceId, clock: clock, store: store);
@@ -90,6 +101,7 @@ class Node {
       signer: signer,
       webRoot: config.webRoot,
       announceHost: config.announceHost,
+      onSourceCommand: handleSourceCommand,
     );
     session.onSnapshotChanged = (payload) {
       server.broadcast(Msg(
@@ -128,8 +140,86 @@ class Node {
 
   /// 新增本机内容源目录并持久化（Library 角色）。
   void addMediaDir(String path) {
-    library.addRoot(path);
-    store.setMeta('media_dirs', jsonEncode(library.roots));
+    library.add(FolderSource(path));
+    _persistSources();
+  }
+
+  /// 新增 WebDAV 网络源（先探测可达性），成功返回 SourceInfo。
+  Future<SourceInfo> addWebdavSource({
+    required String url,
+    String? username,
+    String? password,
+    String? name,
+  }) async {
+    final source = WebdavSource(url: url, username: username, password: password, name: name);
+    final code = await source.ping();
+    if (code != 207) {
+      throw StateError('WebDAV 不可达（HTTP $code，期望 207）');
+    }
+    library.add(source);
+    _persistSources();
+    return source.info;
+  }
+
+  /// 移除内容源（本机/网络均可）。
+  void removeSource(String sourceId) {
+    library.remove(sourceId);
+    _persistSources();
+  }
+
+  void _persistSources() {
+    store.setMeta('media_sources', jsonEncode(library.configs));
+  }
+
+  /// 远端源管理（lib.source.add/remove，已认证控制器可调用）。
+  Future<Map<String, Object?>?> handleSourceCommand(String type, Map<String, Object?> payload) async {
+    switch (type) {
+      case MsgTypes.sourceAdd:
+        try {
+          final kind = payload['kind'] as String? ?? 'folder';
+          final ContentSource source;
+          if (kind == 'webdav') {
+            source = WebdavSource(
+              url: payload['url'] as String? ?? '',
+              username: payload['username'] as String?,
+              password: payload['password'] as String?,
+              name: payload['name'] as String?,
+            );
+            final code = await (source as WebdavSource).ping();
+            if (code != 207) throw StateError('WebDAV 不可达（HTTP \$code）');
+          } else if (kind == 'folder') {
+            source = FolderSource(payload['path'] as String? ?? '');
+            if (!Directory((source as FolderSource).root).existsSync()) {
+              throw StateError('目录不存在：\${(source as FolderSource).root}');
+            }
+          } else {
+            throw ArgumentError('未知源类型：\$kind');
+          }
+          library.add(source);
+          _persistSources();
+          _broadcastSources();
+          return {'ok': true, 'source': source.info.toJson()};
+        } on Object catch (e) {
+          return {'ok': false, 'error': e.toString()};
+        }
+      case MsgTypes.sourceRemove:
+        library.remove(payload['sourceId'] as String? ?? '');
+        _persistSources();
+        _broadcastSources();
+        return {'ok': true};
+      default:
+        return null;
+    }
+  }
+
+  void _broadcastSources() {
+    server.broadcast(Msg(
+      type: MsgTypes.sources,
+      id: newMsgId(),
+      ts: clock.tick(),
+      from: nodeId,
+      payload: server.sourcesPayload(),
+    ));
   }
 
   String newPin() => pairing.newPin();

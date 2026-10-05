@@ -17,6 +17,8 @@ abstract final class MsgTypes {
   static const browseResponse = 'lib.browse.response';
   static const streamRequest = 'lib.stream.request';
   static const streamResponse = 'lib.stream.response';
+  static const sourceAdd = 'lib.source.add';
+  static const sourceRemove = 'lib.source.remove';
 
   // —— player.*：播放指令与状态事件 ——
   static const playerLoad = 'player.cmd.load';
@@ -66,19 +68,28 @@ class NodeInfo {
 
 /// 内容源（M0 仅本机文件夹）。
 class SourceInfo {
-  SourceInfo({required this.sourceId, required this.name, required this.root});
+  SourceInfo({
+    required this.sourceId,
+    required this.name,
+    required this.root,
+    this.kind = 'folder',
+  });
 
   final String sourceId;
   final String name;
   final String root;
 
+  /// 源类型：folder（本机目录）｜ webdav（网络源）…新类型按路线图扩展。
+  final String kind;
+
   Map<String, Object?> toJson() =>
-      {'sourceId': sourceId, 'name': name, 'root': root};
+      {'sourceId': sourceId, 'name': name, 'root': root, 'kind': kind};
 
   static SourceInfo fromJson(Map<String, Object?> json) => SourceInfo(
         sourceId: json['sourceId'] as String,
         name: json['name'] as String,
         root: json['root'] as String,
+        kind: json['kind'] as String? ?? 'folder',
       );
 }
 

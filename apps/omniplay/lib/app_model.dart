@@ -82,6 +82,22 @@ class AppModel extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 添加 WebDAV 网络源到本节点（失败抛异常，UI 层提示）。
+  Future<void> addWebdavSource({
+    required String url,
+    String? username,
+    String? password,
+    String? name,
+  }) async {
+    await node.addWebdavSource(url: url, username: username, password: password, name: name);
+    notifyListeners();
+  }
+
+  void removeSource(String sourceId) {
+    node.removeSource(sourceId);
+    notifyListeners();
+  }
+
   /// 刷新 PIN（UI 主动换码时调用）。
   void refreshPin() {
     node.newPin();
