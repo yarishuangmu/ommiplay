@@ -31,6 +31,25 @@ abstract final class MsgTypes {
   static const playerSelectTrack = 'player.cmd.selectTrack';
   static const playerState = 'player.evt.state';
   static const playerTakeover = 'player.takeover';
+
+  // —— 语义按键（播放器会话自行映射：音量/快进/暂停/全屏/重播…）——
+  static const playerKey = 'player.cmd.key';
+
+  // —— 节点系统控制（重启应用/重启系统/睡眠，按平台能力裁剪）——
+  static const restartApp = 'node.cmd.restartApp';
+  static const rebootSystem = 'node.cmd.rebootSystem';
+  static const sleepSystem = 'node.cmd.sleepSystem';
+
+  // —— PC 控制（仿真触控板/键鼠，仅桌面节点支持，参考 TinyPlay）——
+  static const inputMouseMove = 'input.mouseMove';
+  static const inputMouseClick = 'input.mouseClick';
+  static const inputMouseScroll = 'input.mouseScroll';
+  static const inputKeyPress = 'input.keyPress';
+  static const inputText = 'input.text';
+
+  // —— 在线网页（优酷/爱奇艺/腾讯等，桌面节点内置 WebView 承载）——
+  static const webOpen = 'web.open';
+  static const webClose = 'web.close';
 }
 
 /// node.hello 载荷：节点自我宣告。

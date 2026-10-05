@@ -5,6 +5,7 @@ import 'package:node_protocol/src/messages.dart';
 import 'hlc.dart';
 import 'player_adapter.dart';
 import 'store.dart';
+import 'system_control.dart';
 
 /// 播放器会话：**状态权威**（A4）。
 /// 控制器连接后先收一份 snapshot，之后每次变化广播 player.evt.state；
@@ -14,17 +15,23 @@ class PlayerSession {
     required this.nodeId,
     required this.clock,
     required this.store,
+    this.systemControl,
   });
 
   final String nodeId;
   final HlcClock clock;
   final NodeStore store;
+  final SystemControl? systemControl;
 
   PlayerSnapshot _snapshot = PlayerSnapshot.idle();
   PlayerAdapter? _adapter;
   StreamSubscription<PlayerSnapshot>? _sub;
+  String _lastLoadKind = 'file';
+  bool _fullscreen = false;
 
   /// 接管代次：每次显式接管 +1，控制器 UI 借此显示"当前受控于谁"。
+  bool get fullscreen => _fullscreen;
+
   int epoch = 0;
   String? controllerId;
   String? controllerName;
@@ -77,11 +84,11 @@ class PlayerSession {
 
     switch (type) {
       case MsgTypes.playerLoad:
-        final kind = payload['kind'] as String? ?? 'file';
+        _lastLoadKind = payload['kind'] as String? ?? 'file';
         final value = payload['value'] as String?;
         if (value == null) throw ArgumentError('load 缺少 value');
         final title = payload['title'] as String?;
-        await adapter.load(kind: kind, value: value, title: title);
+        await adapter.load(kind: _lastLoadKind, value: value, title: title);
         _maybeAutoResume(value);
         return true;
       case MsgTypes.playerPlay:
@@ -108,6 +115,53 @@ class PlayerSession {
           kind: payload['kind'] as String? ?? 'audio',
           index: (payload['index'] as num?)?.toInt() ?? 0,
         );
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  /// 语义按键（遥控器方向键/OK/返回…）映射为会话操作（B1/C5）。
+  /// 返回是否认识该按键；未识别的按键由控制端走 raw input 层。
+  Future<bool> handleKey({required String key, required String fromId}) async {
+    final adapter = _adapter;
+    if (adapter == null) return true;
+    switch (key) {
+      case 'playPause':
+      case 'ok':
+        if (_snapshot.state == PlaybackStateName.playing) {
+          await adapter.pause();
+        } else {
+          await adapter.play();
+        }
+        return true;
+      case 'up':
+        await adapter.setVolume((_snapshot.volume + 10).clamp(0, 100));
+        return true;
+      case 'down':
+        await adapter.setVolume((_snapshot.volume - 10).clamp(0, 100));
+        return true;
+      case 'left':
+        await adapter.seekMs((_snapshot.positionMs - 10 * 1000).clamp(0, 1 << 31));
+        return true;
+      case 'right':
+        await adapter.seekMs(_snapshot.positionMs + 10 * 1000);
+        return true;
+      case 'back':
+        _persistNow();
+        await adapter.stop();
+        return true;
+      case 'restart':
+        final source = _snapshot.source;
+        if (source != null) {
+          await adapter.load(kind: _lastLoadKind, value: source, title: _snapshot.title);
+        }
+        return true;
+      case 'fullscreen':
+        final control = systemControl;
+        if (control != null) {
+          _fullscreen = await control.toggleFullscreen();
+        }
         return true;
       default:
         return false;

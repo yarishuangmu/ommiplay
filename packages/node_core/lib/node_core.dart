@@ -22,6 +22,7 @@ export 'src/session.dart';
 export 'src/sources.dart';
 export 'src/webdav.dart';
 export 'src/store.dart';
+export 'src/system_control.dart';
 export 'src/stream_signer.dart';
 export 'src/udp_beacon.dart';
 export 'src/utils.dart';

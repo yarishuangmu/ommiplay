@@ -55,6 +55,7 @@ class PlayerRemote {
     required String deviceName,
     NodeIdentity? identity,
     String? pin,
+    String? joinToken,
     String? webToken,
     Duration timeout = const Duration(seconds: 10),
 
@@ -89,7 +90,7 @@ class PlayerRemote {
         if (!handshake.isCompleted) {
           switch (msg.type) {
             case MsgTypes.challenge:
-              remote._answerChallenge(msg, identity: identity, pin: pin, webToken: webToken);
+              remote._answerChallenge(msg, identity: identity, pin: pin, joinToken: joinToken, webToken: webToken);
               return;
             case MsgTypes.authResult:
               if (msg.p<bool>('ok')) {
@@ -161,6 +162,7 @@ class PlayerRemote {
     Msg challenge, {
     required NodeIdentity? identity,
     required String? pin,
+    required String? joinToken,
     required String? webToken,
   }) async {
     final nonce = challenge.p<String>('nonce');
@@ -171,6 +173,15 @@ class PlayerRemote {
     if (pin != null && identity != null) {
       _send(MsgTypes.pinRequest, {
         'pin': pin,
+        'deviceId': identity.deviceId,
+        'name': _name,
+        'pubKey': identity.publicKeyBase64,
+      });
+      return;
+    }
+    if (joinToken != null && identity != null) {
+      _send(MsgTypes.pinRequest, {
+        'joinToken': joinToken,
         'deviceId': identity.deviceId,
         'name': _name,
         'pubKey': identity.publicKeyBase64,
@@ -246,6 +257,37 @@ class PlayerRemote {
   Future<void> takeover() async {
     _send(MsgTypes.playerTakeover, {});
   }
+
+  // —— 语义按键（遥控器）：播放器会话自行映射 ——
+  Future<void> sendKey(String key) => _cmd(MsgTypes.playerKey, {'key': key});
+
+  // —— PC 控制（仿真触控板/键鼠，桌面节点）——
+  Future<void> mouseMove({required double dx, required double dy}) =>
+      _cmd(MsgTypes.inputMouseMove, {'dx': dx, 'dy': dy});
+
+  Future<void> mouseClick({String button = 'left', bool doubleClick = false}) =>
+      _cmd(MsgTypes.inputMouseClick, {'button': button, 'doubleClick': doubleClick});
+
+  Future<void> mouseScroll({required double dx, required double dy}) =>
+      _cmd(MsgTypes.inputMouseScroll, {'dx': dx, 'dy': dy});
+
+  Future<void> keyPress(String key) => _cmd(MsgTypes.inputKeyPress, {'key': key});
+
+  Future<void> inputText(String text) => _cmd(MsgTypes.inputText, {'text': text});
+
+  // —— 在线网页（优酷/爱奇艺/腾讯等，桌面节点承载）——
+  Future<Map<String, Object?>> webOpen(String url, {String? title}) => request(
+        MsgTypes.webOpen,
+        {'url': url, if (title != null) 'title': title},
+        responseType: MsgTypes.webOpen,
+      );
+
+  Future<void> webClose() => _cmd(MsgTypes.webClose, {});
+
+  // —— 系统（重启/睡眠）——
+  Future<void> restartApp() => _cmd(MsgTypes.restartApp, {});
+  Future<void> rebootSystem() => _cmd(MsgTypes.rebootSystem, {});
+  Future<void> sleepSystem() => _cmd(MsgTypes.sleepSystem, {});
 
   Future<void> _cmd(String type, Map<String, Object?> payload) async {
     _send(type, payload);

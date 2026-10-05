@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit_video/media_kit_video.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:node_core/node_core.dart';
 
 import '../app_model.dart';
@@ -53,6 +54,16 @@ class _ControllerTab extends StatelessWidget {
           children: [
             Card(
               child: ListTile(
+                leading: const Icon(Icons.qr_code_scanner),
+                title: const Text('扫码配对'),
+                subtitle: const Text('扫描节点屏幕上的二维码，免输 PIN'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => _scanPair(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: ListTile(
                 leading: const Icon(Icons.lan_outlined),
                 title: const Text('手动添加节点'),
                 subtitle: const Text('发现不到时输入对方 IP 和端口（三层兜底的最后一层）'),
@@ -80,6 +91,28 @@ class _ControllerTab extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Future<void> _scanPair(BuildContext context) async {
+    final joined = await Navigator.push<({String host, int port, String token})>(
+      context,
+      MaterialPageRoute(builder: (_) => const ScanPairPage()),
+    );
+    if (joined == null || !context.mounted) return;
+    final remote = await connectWithTokenFlow(
+      context,
+      model,
+      host: joined.host,
+      port: joined.port,
+      token: joined.token,
+    );
+    if (remote == null || !context.mounted) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => RemoteControlScreen(model: model, remote: remote, targetName: '扫码节点'),
+      ),
     );
   }
 
@@ -137,7 +170,7 @@ class _ControllerTab extends StatelessWidget {
   }
 }
 
-/// 遥控某个播放器节点（C3）。
+/// 遥控某个播放器节点：遥控盘（语义按键）/ 触控板（电脑控制）/ 键盘 三个模式。
 class RemoteControlScreen extends StatelessWidget {
   const RemoteControlScreen({
     super.key,
@@ -152,30 +185,331 @@ class RemoteControlScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('遥控：$targetName'),
-        actions: [
-          IconButton(
-            tooltip: '断开',
-            onPressed: () {
-              model.disconnectActive();
-              Navigator.pop(context);
-            },
-            icon: const Icon(Icons.link_off),
+    return DefaultTabController(
+      length: 3,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('遥控：$targetName'),
+          actions: [
+            IconButton(
+              tooltip: '在线影院（优酷/爱奇艺/腾讯…）',
+              onPressed: () => _openSitesSheet(context),
+              icon: const Icon(Icons.ondemand_video),
+            ),
+            IconButton(
+              tooltip: '电源/系统',
+              onPressed: () => _openPowerSheet(context),
+              icon: const Icon(Icons.power_settings_new),
+            ),
+          ],
+          bottom: const TabBar(tabs: [
+            Tab(icon: Icon(Icons.dialpad), text: '遥控盘'),
+            Tab(icon: Icon(Icons.touch_app), text: '触控板'),
+            Tab(icon: Icon(Icons.keyboard_outlined), text: '键盘'),
+          ]),
+        ),
+        body: ListenableBuilder(
+          listenable: model,
+          builder: (context, _) => TabBarView(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: SingleChildScrollView(
+                  child: RemotePad(
+                    remote: remote,
+                    state: model.activeState,
+                    onBrowse: () => showBrowseSheet(context, remote),
+                  ),
+                ),
+              ),
+              _TouchpadTab(remote: remote),
+              _KeyboardTab(remote: remote),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 在线影院（D1 在线流媒体，R2 尽力而为）：桌面节点内置 WebView 打开站点，
+  /// 再用触控板/键盘直接操作网页。
+  Future<void> _openSitesSheet(BuildContext context) async {
+    final sites = {
+      '优酷': 'https://www.youku.com/',
+      '爱奇艺': 'https://www.iqiyi.com/',
+      '腾讯视频': 'https://v.qq.com/',
+      '哔哩哔哩': 'https://www.bilibili.com/',
+    };
+    final custom = TextEditingController();
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text('在「$targetName」打开网页播放', style: Theme.of(sheetContext).textTheme.titleMedium),
+            ),
+            for (final entry in sites.entries)
+              ListTile(
+                leading: const Icon(Icons.play_circle_outline),
+                title: Text(entry.key),
+                subtitle: Text(entry.value),
+                onTap: () async {
+                  Navigator.pop(sheetContext);
+                  try {
+                    await remote.webOpen(entry.value, title: entry.key);
+                  } on Object catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context)
+                          .showSnackBar(SnackBar(content: Text('打开失败：$e')));
+                    }
+                  }
+                },
+              ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: custom,
+                      decoration: const InputDecoration(labelText: '自定义网址', hintText: 'https://…'),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () async {
+                      final url = custom.text.trim();
+                      if (url.isEmpty) return;
+                      Navigator.pop(sheetContext);
+                      try {
+                        await remote.webOpen(url, title: '网页');
+                      } on Object catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context)
+                              .showSnackBar(SnackBar(content: Text('打开失败：$e')));
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 电源/系统菜单（重启控制）。
+  Future<void> _openPowerSheet(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.replay),
+              title: const Text('重播当前媒体'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                remote.sendKey('restart');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.fullscreen),
+              title: const Text('全屏切换'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                remote.sendKey('fullscreen');
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.restart_alt),
+              title: const Text('重启节点应用'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                remote.restartApp();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.refresh),
+              title: const Text('重启节点系统'),
+              subtitle: const Text('仅桌面节点支持，需系统授权'),
+              onTap: () async {
+                Navigator.pop(sheetContext);
+                try {
+                  await remote.rebootSystem();
+                } on Object catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context)
+                        .showSnackBar(SnackBar(content: Text('$e')));
+                  }
+                }
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.dark_mode_outlined),
+              title: const Text('让节点系统睡眠'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                remote.sleepSystem();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 触控板（仿真触控板）：滑动=移动鼠标，轻点=左键，双击=双击，右侧滚动条。
+class _TouchpadTab extends StatelessWidget {
+  const _TouchpadTab({required this.remote});
+
+  final PlayerRemote remote;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Expanded(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanUpdate: (d) =>
+                        remote.mouseMove(dx: d.delta.dx, dy: d.delta.dy),
+                    onTap: () => remote.mouseClick(),
+                    onDoubleTap: () => remote.mouseClick(doubleClick: true),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('触控板\n滑动=移动 · 轻点=左键 · 双击=双击',
+                          textAlign: TextAlign.center),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (d) => remote.mouseScroll(dx: 0, dy: d.delta.dy),
+                  child: Container(
+                    width: 56,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    alignment: Alignment.center,
+                    child: const RotatedBox(
+                      quarterTurns: 1,
+                      child: Text('滚 动'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              FilledButton.tonal(
+                onPressed: () => remote.mouseClick(),
+                child: const Text('左键'),
+              ),
+              const SizedBox(width: 16),
+              FilledButton.tonal(
+                onPressed: () => remote.mouseClick(button: 'right'),
+                child: const Text('右键'),
+              ),
+            ],
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: model,
-        builder: (context, _) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: RemotePad(
-            remote: remote,
-            state: model.activeState,
-            onBrowse: () => showBrowseSheet(context, remote),
+    );
+  }
+}
+
+/// 键盘模式：输入文字 + 常用按键直通（网页里 F=全屏、空格=播放…）。
+class _KeyboardTab extends StatefulWidget {
+  const _KeyboardTab({required this.remote});
+
+  final PlayerRemote remote;
+
+  @override
+  State<_KeyboardTab> createState() => _KeyboardTabState();
+}
+
+class _KeyboardTabState extends State<_KeyboardTab> {
+  final _controller = TextEditingController();
+
+  static const _keys = [
+    'space', 'enter', 'esc', 'tab',
+    'up', 'down', 'left', 'right',
+    'f', 'p', 'm', 's',
+    'volumeUp', 'volumeDown', 'mute',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  decoration: const InputDecoration(
+                    labelText: '输入文字（直接键入到节点）',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: () {
+                  final text = _controller.text;
+                  if (text.isNotEmpty) {
+                    widget.remote.inputText(text);
+                    _controller.clear();
+                  }
+                },
+                child: const Text('键入'),
+              ),
+            ],
           ),
-        ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final key in _keys)
+                OutlinedButton(
+                  onPressed: () => widget.remote.keyPress(key),
+                  child: Text(key),
+                ),
+            ],
+          ),
+          const Spacer(),
+          const Text('提示：网页里 F=全屏、空格=播放/暂停、←→=快进退',
+              style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }
@@ -208,6 +542,34 @@ class _LocalPlayTab extends StatelessWidget {
                 : const Center(child: Text('播放内核未就绪')),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// 扫码配对页（M0-β）：解析节点屏幕上的 omniplay://join 二维码。
+class ScanPairPage extends StatelessWidget {
+  const ScanPairPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('扫描节点二维码')),
+      body: MobileScanner(
+        onDetect: (capture) {
+          for (final barcode in capture.barcodes) {
+            final code = barcode.rawValue;
+            if (code == null || !code.startsWith('omniplay://join')) continue;
+            final uri = Uri.tryParse(code);
+            if (uri == null) continue;
+            final host = uri.queryParameters['host'];
+            final port = int.tryParse(uri.queryParameters['port'] ?? '') ?? 0;
+            final token = uri.queryParameters['t'];
+            if (host == null || port <= 0 || token == null) continue;
+            Navigator.pop(context, (host: host, port: port, token: token));
+            return;
+          }
+        },
       ),
     );
   }

@@ -5,12 +5,19 @@ import 'package:media_kit/media_kit.dart';
 import 'package:node_core/node_core.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+// tray_manager 0.7.0 主库漏导出自身实现（TrayManager/TrayListener），直接引 src。
+// ignore: implementation_imports
+import 'package:tray_manager/src/tray_listener.dart';
+// ignore: implementation_imports
+import 'package:tray_manager/src/tray_manager.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app_model.dart';
 import 'services/bonsoir_discovery.dart';
 import 'services/keep_awake.dart';
+import 'services/mac_system_control.dart';
 import 'services/mpv_adapter.dart';
+import 'services/web_presenter.dart';
 import 'ui/player_page.dart';
 import 'ui/remote_page.dart';
 
@@ -18,7 +25,9 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   MediaKit.ensureInitialized();
 
-  if (Platform.isMacOS) {
+  final isMac = Platform.isMacOS;
+
+  if (isMac) {
     await windowManager.ensureInitialized();
     const options = WindowOptions(
       size: Size(1280, 800),
@@ -34,6 +43,11 @@ Future<void> main() async {
   final supportDir = await getApplicationSupportDirectory();
   final dataDir = p.join(supportDir.path, 'node');
 
+  // 平台能力注入（node_core 保持纯 Dart）。
+  final SystemControl systemControl = isMac ? MacSystemControl() : AndroidSystemControl();
+  final InputController? inputController = isMac ? MacInputController() : null;
+  final WebPresenter? webPresenter = isMac ? DesktopWebPresenter() : null;
+
   final node = Node(
     config: NodeConfig(
       name: _nodeName(),
@@ -41,6 +55,9 @@ Future<void> main() async {
       webRoot: _webRoot(),
     ),
     playerAdapterFactory: () => MpvPlayerAdapter(Player()),
+    systemControl: systemControl,
+    webPresenter: webPresenter,
+    inputController: inputController,
   );
   await node.start();
 
@@ -59,9 +76,33 @@ Future<void> main() async {
 
   final keepAwake = KeepAwake();
   await keepAwake.start();
+  if (Platform.isAndroid) {
+    await keepAwake.startNodeService(); // 前台服务保活节点（M0-β）
+  }
+
+  if (isMac) {
+    _setupTray();
+  }
 
   final model = AppModel(node: node, myName: node.config.name);
   runApp(OmniPlayApp(model: model));
+}
+
+/// 系统托盘（macOS，M0-β）：点击托盘图标调回主窗口。
+void _setupTray() {
+  // ignore: deprecated_member_use
+  final tray = TrayManager.instance;
+  tray.setIcon('assets/tray_icon.png');
+  tray.addListener(_TrayHandler());
+}
+
+// ignore: deprecated_member_use
+class _TrayHandler with TrayListener {
+  @override
+  void onTrayIconMouseDown() {
+    windowManager.show();
+    windowManager.focus();
+  }
 }
 
 String _nodeName() {

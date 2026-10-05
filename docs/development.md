@@ -49,7 +49,11 @@ yes | flutter doctor --android-licenses
 - **端口被占**：日志会抛 SocketException；改 NodeConfig 端口或释放占用。
 - **PIN 一直无效**：PIN 5 分钟过期且一次性，用播放器页"刷新"重新生成。
 - **Android 上收不到信标**：已实现 MulticastLock（MainActivity），若仍失败属机型限制，走手动直连。
-- **Android 应用退后台后被杀**：M0 无前台服务，节点随进程死亡；遥控手机前保持其在前台。
+- **Android 节点保活**：M0-β 起有前台服务（NodeService，常驻通知），应用启动即拉起；
+  MIUI 锁屏仍可能限制网络（Doze），配对/遥控时保持亮屏效果最佳。可在电池策略中设为"无限制"。
+- **macOS 键鼠控制授权**：首次使用触控板/键盘功能需在"系统设置 → 隐私与安全性 → 辅助功能"
+  授权 OmniPlay（CGEvent 事件投递要求），否则事件静默丢失。
+- **tray_manager 0.7.0**：主库漏导出自身实现，需直接引 `package:tray_manager/src/…`（代码已处理）。
 - **验证工具**：`cd packages/node_core && dart run tool/probe_node.dart <host> [port]`
   可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）；
   `dart run tool/link_check.dart <host>` 用本机节点身份验证配对互信与控制面。

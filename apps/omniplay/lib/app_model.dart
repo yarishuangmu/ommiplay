@@ -31,6 +31,7 @@ class AppModel extends ChangeNotifier {
     required int port,
     required String name,
     String? pin,
+    String? joinToken,
   }) async {
     connectionError = null;
     final key = '$host:$port';
@@ -47,6 +48,7 @@ class AppModel extends ChangeNotifier {
         deviceName: myName,
         identity: node.identity,
         pin: pin,
+        joinToken: joinToken,
         // A2 互换语义：把主机端记录落库，本机才能反向认证主机。
         onPaired: node.store.upsertDevice,
       );

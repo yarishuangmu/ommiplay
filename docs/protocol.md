@@ -74,6 +74,17 @@
 | `player.cmd.selectTrack` | `{kind:'audio'\|'subtitle', index}` | |
 | `player.evt.state` | PlayerState（见下） | 每次变化广播全量快照 |
 | `player.takeover` | `{}` | epoch+1，广播状态携带新 controllerName |
+| `player.cmd.key` | `{key}` | 语义按键：up/down/left/right/ok/playPause/back/restart/fullscreen，会话映射为音量/快进退/暂停/重播/全屏 |
+| `node.cmd.restartApp` | `{}` | 重启节点应用（macOS 重新拉起 bundle；移动端退出进程） |
+| `node.cmd.rebootSystem` | `{}` | 重启节点系统（仅桌面，AppleScript，需授权） |
+| `node.cmd.sleepSystem` | `{}` | 节点系统睡眠（macOS `pmset sleepnow`） |
+| `input.mouseMove` | `{dx,dy}` | 仿真触控板：移动鼠标（CGEvent，需辅助功能授权） |
+| `input.mouseClick` | `{button:'left'\|'right', doubleClick}` | 鼠标点击 |
+| `input.mouseScroll` | `{dx,dy}` | 滚轮 |
+| `input.keyPress` | `{key}` | 命名按键直通（up/enter/esc/space/f/p/m/volumeUp…），网页里 F=全屏、空格=播放 |
+| `input.text` | `{text}` | 直接键入文本（CGEvent Unicode，中文尽力而为） |
+| `web.open` | `{url,title?}` | 桌面节点内置 WebView 打开在线站点（优酷/爱奇艺/腾讯视频/B站），仅桌面支持 |
+| `web.close` | `{}` | 关闭网页窗口 |
 
 ### PlayerState（player.evt.state 载荷）
 

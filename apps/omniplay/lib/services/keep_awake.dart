@@ -20,6 +20,16 @@ class KeepAwake {
     }
   }
 
+  /// Android：启动节点前台服务（M0-β 保活）。
+  Future<void> startNodeService() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _channel.invokeMethod('startNodeService');
+    } on PlatformException {
+      // 忽略。
+    }
+  }
+
   /// Android：播放状态变化时调用。
   Future<void> setPlaybackActive(bool active) async {
     if (!Platform.isAndroid) return;

@@ -15,6 +15,7 @@ import 'pairing.dart';
 import 'player_adapter.dart';
 import 'session.dart';
 import 'store.dart';
+import 'system_control.dart';
 import 'stream_signer.dart';
 import 'udp_beacon.dart';
 
@@ -35,12 +36,20 @@ class Node {
     required this.config,
     PlayerAdapter Function()? playerAdapterFactory,
     List<DiscoveryChannel> discoveryChannels = const [],
+    this.systemControl,
+    this.webPresenter,
+    this.inputController,
   })  : _playerAdapterFactory = playerAdapterFactory,
         _extraChannels = List.of(discoveryChannels);
 
   final NodeConfig config;
   final PlayerAdapter Function()? _playerAdapterFactory;
   final List<DiscoveryChannel> _extraChannels;
+
+  /// 平台注入的系统能力（桌面全支持，移动端部分支持/不支持）。
+  final SystemControl? systemControl;
+  final WebPresenter? webPresenter;
+  final InputController? inputController;
 
   late final NodeStore store;
   late final NodeIdentity identity;
@@ -89,7 +98,12 @@ class Node {
     ]);
     pairing = PairingService();
     signer = StreamSigner(_streamSecret());
-    session = PlayerSession(nodeId: identity.deviceId, clock: clock, store: store);
+    session = PlayerSession(
+      nodeId: identity.deviceId,
+      clock: clock,
+      store: store,
+      systemControl: systemControl,
+    );
     server = NodeServer(
       nodeId: identity.deviceId,
       nodeName: config.name,
@@ -102,6 +116,9 @@ class Node {
       webRoot: config.webRoot,
       announceHost: config.announceHost,
       onSourceCommand: handleSourceCommand,
+      systemControl: systemControl,
+      webPresenter: webPresenter,
+      inputController: inputController,
     );
     session.onSnapshotChanged = (payload) {
       server.broadcast(Msg(
@@ -223,6 +240,9 @@ class Node {
   }
 
   String newPin() => pairing.newPin();
+
+  /// 生成一次性扫码加入令牌（QR 配对，M0-β）。
+  String newJoinToken() => pairing.newJoinToken();
 
   Future<void> stop() async {
     if (!_started) return;

@@ -17,6 +17,7 @@ import 'pairing.dart';
 import 'session.dart';
 import 'store.dart';
 import 'sources.dart';
+import 'system_control.dart';
 import 'stream_signer.dart';
 import 'utils.dart';
 
@@ -34,11 +35,18 @@ class NodeServer {
     this.webRoot,
     this.announceHost,
     this.onSourceCommand,
+    this.systemControl,
+    this.webPresenter,
+    this.inputController,
   });
 
   /// 远端内容源管理（lib.source.add/remove）委托给 Node 处理与持久化。
   final Future<Map<String, Object?>?> Function(String type, Map<String, Object?> payload)?
       onSourceCommand;
+
+  final SystemControl? systemControl;
+  final WebPresenter? webPresenter;
+  final InputController? inputController;
 
   HttpClient? _upstreamClient;
 
@@ -152,6 +160,73 @@ class NodeServer {
             _reply(peer, msg.type, result, reqId: msg.pOrNull<String>('reqId'));
           }
           return;
+        case MsgTypes.playerKey:
+          final keyHandled = await session.handleKey(
+            key: msg.pOrNull<String>('key') ?? '',
+            fromId: peer.deviceId ?? '',
+          );
+          if (!keyHandled) {
+            final keyName = msg.pOrNull<String>('key') ?? '';
+            _send(peer, MsgTypes.error, {'code': 'unknown-key', 'message': keyName});
+          }
+          return;
+        case MsgTypes.restartApp:
+          await systemControl?.restartApp();
+          return;
+        case MsgTypes.rebootSystem:
+          await systemControl?.rebootSystem();
+          return;
+        case MsgTypes.sleepSystem:
+          await systemControl?.sleepSystem();
+          return;
+        case MsgTypes.webOpen:
+          final presenter = webPresenter;
+          if (presenter == null || !presenter.isSupported) {
+            _send(peer, MsgTypes.error, {'code': 'web-unsupported', 'message': '该节点不支持网页承载（仅桌面）'});
+            return;
+          }
+          await presenter.open(
+            msg.p<String>('url'),
+            title: msg.pOrNull<String>('title'),
+          );
+          _reply(peer, MsgTypes.webOpen, {'ok': true}, reqId: msg.pOrNull<String>('reqId'));
+          return;
+        case MsgTypes.webClose:
+          await webPresenter?.close();
+          _reply(peer, MsgTypes.webClose, {'ok': true}, reqId: msg.pOrNull<String>('reqId'));
+          return;
+        case MsgTypes.inputMouseMove:
+        case MsgTypes.inputMouseClick:
+        case MsgTypes.inputMouseScroll:
+        case MsgTypes.inputKeyPress:
+        case MsgTypes.inputText:
+          final input = inputController;
+          if (input == null || !input.isSupported) {
+            _send(peer, MsgTypes.error, {'code': 'input-unsupported', 'message': '该节点不支持键鼠控制（仅桌面）'});
+            return;
+          }
+          switch (msg.type) {
+            case MsgTypes.inputMouseMove:
+              await input.mouseMove(
+                dx: (msg.payload['dx'] as num?)?.toDouble() ?? 0,
+                dy: (msg.payload['dy'] as num?)?.toDouble() ?? 0,
+              );
+            case MsgTypes.inputMouseClick:
+              await input.mouseClick(
+                button: msg.pOrNull<String>('button') ?? 'left',
+                doubleClick: msg.pOrNull<bool>('doubleClick') ?? false,
+              );
+            case MsgTypes.inputMouseScroll:
+              await input.mouseScroll(
+                dx: (msg.payload['dx'] as num?)?.toDouble() ?? 0,
+                dy: (msg.payload['dy'] as num?)?.toDouble() ?? 0,
+              );
+            case MsgTypes.inputKeyPress:
+              await input.keyPress(msg.p<String>('key'));
+            case MsgTypes.inputText:
+              await input.inputText(msg.p<String>('text'));
+          }
+          return;
         case MsgTypes.playerTakeover:
           session.takeover(id: peer.deviceId ?? peer.hashCode.toString(), name: peer.name);
           return;
@@ -177,13 +252,16 @@ class NodeServer {
   }
 
   Future<void> _onPinRequest(_Peer peer, Msg msg) async {
-    final pin = msg.p<String>('pin');
+    final joinToken = msg.pOrNull<String>('joinToken');
+    final pin = msg.pOrNull<String>('pin');
     final deviceId = msg.p<String>('deviceId');
     final name = msg.pOrNull<String>('name') ?? '未命名设备';
     final pubKey = msg.p<String>('pubKey');
 
-    if (!pairing.validatePin(pin)) {
-      _send(peer, MsgTypes.pinResponse, {'ok': false, 'error': 'PIN 无效或已过期'});
+    final pinOk = pin != null && pairing.validatePin(pin);
+    final tokenOk = joinToken != null && pairing.validateJoinToken(joinToken);
+    if (!pinOk && !tokenOk) {
+      _send(peer, MsgTypes.pinResponse, {'ok': false, 'error': 'PIN/配对码无效或已过期'});
       return;
     }
     store.upsertDevice(DeviceRecord(

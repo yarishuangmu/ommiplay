@@ -1,5 +1,6 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:node_core/node_core.dart';
 
@@ -103,14 +104,28 @@ class _SidePanel extends StatelessWidget {
   }
 }
 
-class _PinCard extends StatelessWidget {
+class _PinCard extends StatefulWidget {
   const _PinCard({required this.model});
 
   final AppModel model;
 
   @override
+  State<_PinCard> createState() => _PinCardState();
+}
+
+class _PinCardState extends State<_PinCard> {
+  bool _showQr = false;
+  String? _joinToken;
+
+  @override
   Widget build(BuildContext context) {
+    final model = widget.model;
     final pin = model.node.currentPin ?? model.node.newPin();
+    final lanUri = Uri.parse(model.node.lanUrl);
+    final joinToken = _showQr ? (_joinToken ??= model.node.newJoinToken()) : null;
+    final qrData = joinToken == null
+        ? ''
+        : 'omniplay://join?host=${lanUri.host}&port=${lanUri.port}&t=$joinToken&name=${Uri.encodeComponent(model.node.config.name)}';
     return Card(
       color: Theme.of(context).colorScheme.secondaryContainer,
       child: Padding(
@@ -120,17 +135,31 @@ class _PinCard extends StatelessWidget {
           children: [
             Row(
               children: [
-                Text('配对 PIN', style: Theme.of(context).textTheme.titleSmall),
+                Text('配对', style: Theme.of(context).textTheme.titleSmall),
                 const Spacer(),
                 IconButton(
-                  tooltip: '换一个 PIN',
+                  tooltip: _showQr ? '显示 PIN' : '显示扫码二维码',
+                  onPressed: () => setState(() {
+                    _showQr = !_showQr;
+                    _joinToken = null;
+                  }),
+                  icon: Icon(_showQr ? Icons.pin_outlined : Icons.qr_code),
+                ),
+                IconButton(
+                  tooltip: '重新生成',
                   onPressed: model.refreshPin,
                   icon: const Icon(Icons.refresh, size: 20),
                 ),
               ],
             ),
-            Text(pin, style: Theme.of(context).textTheme.displaySmall?.copyWith(letterSpacing: 8)),
-            Text('新设备（手机/Web 控制页）输入此 PIN 加入家庭', style: Theme.of(context).textTheme.bodySmall),
+            if (_showQr) ...[
+              Center(child: QrImageView(data: qrData, size: 180, backgroundColor: Colors.white)),
+              const SizedBox(height: 6),
+              const Text('手机端「扫码配对」扫描此码，免输 PIN 加入'),
+            ] else ...[
+              Text(pin, style: Theme.of(context).textTheme.displaySmall?.copyWith(letterSpacing: 8)),
+              Text('新设备（手机/Web 控制页）输入此 PIN 加入家庭', style: Theme.of(context).textTheme.bodySmall),
+            ],
           ],
         ),
       ),

@@ -62,6 +62,24 @@ void _showError(BuildContext context, Object error) {
   );
 }
 
+/// 扫码配对后的连接流程（joinToken 一次性令牌）。
+Future<PlayerRemote?> connectWithTokenFlow(
+  BuildContext context,
+  AppModel model, {
+  required String host,
+  required int port,
+  required String token,
+}) async {
+  try {
+    return await model.connect(host: host, port: port, name: host, joinToken: token);
+  } on Object catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('连接失败：$e')),
+    );
+    return null;
+  }
+}
+
 /// 内容源浏览与投片（A5）：选源 → 目录导航 → 点文件 → 取流地址 → load 到目标播放器。
 Future<void> showBrowseSheet(BuildContext context, PlayerRemote remote) async {
   await showModalBottomSheet<void>(

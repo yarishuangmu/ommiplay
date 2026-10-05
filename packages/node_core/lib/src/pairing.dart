@@ -34,4 +34,30 @@ class PairingService {
     _pin = null;
     return true;
   }
+
+  // —— 扫码配对（M0-β）：QR 里携带一次性加入令牌，效果等同 PIN ——
+  String? _joinToken;
+  DateTime _tokenExpiresAt = DateTime.fromMillisecondsSinceEpoch(0);
+
+  String newJoinToken() {
+    final bytes = List<int>.generate(24, (_) => _random.nextInt(256));
+    _joinToken = bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+    _tokenExpiresAt = DateTime.now().add(const Duration(minutes: 5));
+    return _joinToken!;
+  }
+
+  String? get currentJoinToken {
+    if (_joinToken == null) return null;
+    if (DateTime.now().isAfter(_tokenExpiresAt)) {
+      _joinToken = null;
+      return null;
+    }
+    return _joinToken;
+  }
+
+  bool validateJoinToken(String token) {
+    if (currentJoinToken == null || currentJoinToken != token) return false;
+    _joinToken = null;
+    return true;
+  }
 }

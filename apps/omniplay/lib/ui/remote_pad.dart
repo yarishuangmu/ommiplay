@@ -118,6 +118,53 @@ class _RemotePadState extends State<RemotePad> {
           ],
         ),
         const SizedBox(height: 8),
+        const SizedBox(height: 8),
+        // 方向键 + OK（遥控器布局，C3）
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Column(
+              children: [
+                _padKey(context, '↑', 'up'),
+                Row(children: [
+                  _padKey(context, '←', 'left'),
+                  const SizedBox(width: 6),
+                  _padKey(context, 'OK', 'ok', primary: true),
+                  const SizedBox(width: 6),
+                  _padKey(context, '→', 'right'),
+                ]),
+                _padKey(context, '↓', 'down'),
+              ],
+            ),
+            const SizedBox(width: 20),
+            Column(
+              children: [
+                _padKey(context, '返回', 'back', wide: true),
+                const SizedBox(height: 6),
+                _padKey(context, '菜单', 'menu', wide: true),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // 全屏 / 重播（会话语义）
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () => widget.remote.sendKey('fullscreen'),
+              icon: const Icon(Icons.fullscreen),
+              label: const Text('全屏'),
+            ),
+            const SizedBox(width: 10),
+            OutlinedButton.icon(
+              onPressed: () => widget.remote.sendKey('restart'),
+              icon: const Icon(Icons.replay),
+              label: const Text('重播'),
+            ),
+          ],
+        ),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -149,6 +196,28 @@ class _RemotePadState extends State<RemotePad> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _padKey(BuildContext context, String label, String key, {bool primary = false, bool wide = false}) {
+    return Padding(
+      padding: const EdgeInsets.all(3),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => widget.remote.sendKey(key),
+        child: Container(
+          width: wide ? 72 : 56,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: primary
+                ? Theme.of(context).colorScheme.primaryContainer
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+        ),
+      ),
     );
   }
 }
