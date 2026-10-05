@@ -182,6 +182,13 @@ class NodeServer {
       'nodeId': nodeId,
       'nodeName': nodeName,
       'familyId': store.getMeta('family_id') ?? nodeId,
+      // 互换设备记录（A2）：把主机端自己的记录带回给加入方，否则加入方
+      // 永远无法认证主机（M0 无同步协议，这是双方互信的唯一交换时机）。
+      'hostDevice': {
+        'deviceId': nodeId,
+        'name': nodeName,
+        'pubKey': identity.publicKeyBase64,
+      },
     });
     _sendAuthenticatedBundle(peer);
   }

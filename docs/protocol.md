@@ -56,7 +56,7 @@
 | `node.error` | `{code,message}` | 错误（bad-message/unauthorized/unknown-command/…） |
 | `pair.challenge` | `{nonce}` | 服务端→客户端 |
 | `pair.pin.request` | `{pin,deviceId,name,pubKey}` | 首次配对 |
-| `pair.pin.response` | `{ok,error?,nodeId?,nodeName?,familyId?}` | |
+| `pair.pin.response` | `{ok,error?,nodeId?,nodeName?,familyId?,hostDevice?}` | `hostDevice` 为主机端设备记录 `{deviceId,name,pubKey}`，加入方必须落库（A2 互换语义） |
 | `pair.auth.request` | `{deviceId,sig}` 或 `{token}` | 挑战应答 / Web 令牌 |
 | `pair.auth.result` | `{ok,error?,nodeName?}` | |
 | `lib.sources` | `{sources:[{sourceId,name,root}], reqId?}` | 带 reqId 视为请求-响应 |

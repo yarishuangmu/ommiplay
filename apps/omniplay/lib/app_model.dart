@@ -47,6 +47,8 @@ class AppModel extends ChangeNotifier {
         deviceName: myName,
         identity: node.identity,
         pin: pin,
+        // A2 互换语义：把主机端记录落库，本机才能反向认证主机。
+        onPaired: node.store.upsertDevice,
       );
       _remotes[key] = remote;
       remote.attachStateSink((state) {

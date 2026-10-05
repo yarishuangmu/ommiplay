@@ -7,6 +7,7 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'hlc.dart';
 import 'identity.dart';
+import 'store.dart';
 
 /// 需要配对（PIN）才能连接：对端不认识本设备身份时抛出。
 class NeedPinException implements Exception {
@@ -56,6 +57,10 @@ class PlayerRemote {
     String? pin,
     String? webToken,
     Duration timeout = const Duration(seconds: 10),
+
+    /// PIN 配对成功时回调：携带主机端设备记录（含主机公钥），调用方应落库，
+    /// 否则本机将来无法认证主机（A2 互换语义）。
+    void Function(DeviceRecord hostDevice)? onPaired,
   }) async {
     if (webToken == null && identity == null) {
       throw ArgumentError('必须提供 identity（原生设备）或 webToken（浏览器）之一');
@@ -96,6 +101,16 @@ class PlayerRemote {
               return;
             case MsgTypes.pinResponse:
               if (msg.p<bool>('ok')) {
+                final hostDevice = msg.pOrNull<Map<dynamic, dynamic>>('hostDevice');
+                if (onPaired != null && hostDevice != null) {
+                  onPaired(DeviceRecord(
+                    deviceId: hostDevice['deviceId'] as String,
+                    name: hostDevice['name'] as String? ?? 'OmniPlay 节点',
+                    kind: 'device',
+                    pubKey: hostDevice['pubKey'] as String,
+                    addedAt: DateTime.now(),
+                  ));
+                }
                 handshake.complete();
               } else {
                 handshakeError = NeedPinException(msg.pOrNull<String>('error') ?? '配对失败');

@@ -39,14 +39,21 @@ void main() {
     final identity = await NodeIdentity.loadOrCreate(NodeStore.open(identityStoreDir));
 
     final pin = node.newPin();
+    DeviceRecord? pairedHost;
     final remote = await PlayerRemote.connect(
       host: '127.0.0.1',
       port: node.boundPort,
       deviceName: '测试手机',
       identity: identity,
       pin: pin,
+      onPaired: (record) => pairedHost = record,
     );
     addTearDown(remote.close);
+
+    // A2 互换语义：配对响应必须带回主机端记录（含主机公钥）。
+    expect(pairedHost, isNotNull);
+    expect(pairedHost!.deviceId, node.nodeId);
+    expect(pairedHost!.pubKey, node.identity.publicKeyBase64);
 
     final states = <PlayerStatePayload>[];
     remote.attachStateSink(states.add);
@@ -180,6 +187,48 @@ void main() {
     await _waitFor(
       () => states.any((s) => s.state == PlaybackStateName.playing && s.positionMs >= 120 * 1000),
     );
+  });
+
+  test('双向互信：A 配对 B 后，A 的身份应能免 PIN 认证到 B 的节点', () async {
+    // nodeA = 已启动的主节点（host）。nodeB = 独立节点（模拟手机端）。
+    final nodeB = Node(
+      config: NodeConfig(
+        name: '节点B',
+        dataDir: '${tempDir.path}/node-b',
+        httpPort: 0,
+        udpPort: null,
+      ),
+    );
+    await nodeB.start();
+    addTearDown(nodeB.stop);
+
+    // B 作为控制器 PIN 配对到 A；onPaired 把 A 的记录落进 B 的库。
+    DeviceRecord? hostRecord;
+    final remote = await PlayerRemote.connect(
+      host: '127.0.0.1',
+      port: node.boundPort,
+      deviceName: '节点B',
+      identity: nodeB.identity,
+      pin: node.newPin(),
+      onPaired: (record) {
+        hostRecord = record;
+        nodeB.store.upsertDevice(record);
+      },
+    );
+    addTearDown(remote.close);
+    expect(hostRecord, isNotNull);
+
+    // 反向：A 的身份直连 B 的节点，应免 PIN 认证通过（配对互换语义的回归用例）。
+    final remoteReverse = await PlayerRemote.connect(
+      host: '127.0.0.1',
+      port: nodeB.boundPort,
+      deviceName: '主节点',
+      identity: node.identity,
+    );
+    await _waitFor(() => remoteReverse.hello != null);
+    expect(remoteReverse.hello, isNotNull);
+    expect(remoteReverse.hello!.nodeId, nodeB.nodeId);
+    await remoteReverse.close();
   });
 }
 
