@@ -53,6 +53,34 @@ class _ControllerTab extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           children: [
             Card(
+              color: Theme.of(context).colorScheme.secondaryContainer,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text('本机配对 PIN', style: Theme.of(context).textTheme.titleSmall),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: '重新生成',
+                          onPressed: model.refreshPin,
+                          icon: const Icon(Icons.refresh, size: 20),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      model.node.currentPin ?? model.node.newPin(),
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(letterSpacing: 8),
+                    ),
+                    const Text('Mac 等桌面节点凭此 PIN 配对进本机', style: TextStyle(color: Colors.grey)),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Card(
               child: ListTile(
                 leading: const Icon(Icons.qr_code_scanner),
                 title: const Text('扫码配对'),
