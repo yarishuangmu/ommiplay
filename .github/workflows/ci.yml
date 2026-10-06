@@ -23,7 +23,10 @@ jobs:
           flutter-version: '3.47.5'
           cache: false
       - name: Install libsqlite3 (FFI binding for package:sqlite3)
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsqlite3-dev libsqlite3-0
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libsqlite3-dev libsqlite3-0
+          sudo ldconfig
       - name: pub get (workspace, Flutter SDK required for apps/omniplay flutter_test)
         run: flutter pub get
       - name: analyze
@@ -114,7 +117,7 @@ jobs:
             libstdc++-12-dev libstdc++6 \
             libwebkit2gtk-4.1-dev \
             libjsoncpp-dev \
-            libmpv-dev libmpv1
+            libmpv-dev libmpv2
       - name: Enable Linux desktop
         run: flutter config --enable-linux-desktop
       - name: pub get (workspace)
