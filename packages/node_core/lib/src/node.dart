@@ -6,6 +6,9 @@ import 'package:node_protocol/src/messages.dart';
 
 import 'capability.dart';
 import 'config.dart';
+import 'plugin_manager.dart';
+import 'user_script_engine.dart';
+import 'iqiyi_plugin.dart';
 import 'hlc.dart';
 import 'discovery.dart';
 import 'gamepad.dart';
@@ -59,6 +62,9 @@ class Node {
 
   /// 正交能力注册表：新能力零改动接入核心路由（docs/capabilities.md）。
   final CapabilityRegistry capabilities = CapabilityRegistry();
+
+  /// 插件运行时（M1-α）。
+  PluginManager? plugins;
 
   late final NodeStore store;
   late final NodeIdentity identity;
@@ -148,6 +154,23 @@ class Node {
       capabilities.register(GamepadCapability(gamepad));
     }
     server.capabilitiesRegistry.registerAll(capabilities.all);
+
+    // 插件运行时：注册内置示例 + 扫描插件目录。
+    plugins = PluginManager(
+      pluginsDir: _pluginsDir(),
+      registry: capabilities,
+      broadcast: (event, data) => server.broadcast(Msg(
+        type: 'plugin.event',
+        id: newMsgId(),
+        ts: clock.tick(),
+        from: nodeId,
+        payload: {'event': event, ...data},
+      )),
+    );
+    plugins!.registerBuiltIn(UserScriptPlugin());
+    plugins!.registerBuiltIn(IqiyiBoostPlugin());
+    await plugins!.scanAndLoad();
+
     await server.start(port: config.httpPort);
 
     final channels = List.of(_extraChannels);
@@ -267,6 +290,8 @@ class Node {
     store.close();
     _started = false;
   }
+
+  String _pluginsDir() => '${config.dataDir}/plugins';
 
   String _streamSecret() {
     var secret = store.getMeta('stream_secret');

@@ -10,6 +10,10 @@ export 'package:node_protocol/src/messages.dart';
 
 export 'src/config.dart';
 export 'src/capability.dart';
+export 'src/plugin.dart';
+export 'src/plugin_manager.dart';
+export 'src/user_script_engine.dart';
+export 'src/iqiyi_plugin.dart';
 export 'src/discovery.dart';
 export 'src/gamepad.dart';
 export 'src/hlc.dart';

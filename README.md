@@ -19,7 +19,8 @@
 | 遥控器升级：方向键+OK/返回/菜单、全屏、重播、重启应用/系统、睡眠 | ✅ 已实现 |
 | 仿真触控板 + 键鼠控制（TinyPlay 式电脑控制，macOS CGEvent） | ✅ 已实现（需辅助功能授权） |
 | 在线影院：优酷/爱奇艺/腾讯视频/B站（桌面 WebView 承载） | ✅ 已实现（R2 尽力而为） |
-| QR 扫码配对、macOS 托盘、Android 前台服务保活 | ✅ 已实现 |
+上面已实现（含手柄仿真（M0-γ）） + M1-α 插件化骨架（PluginManager + CapabilityRegistry 卸载路径 + UserScriptHook）
+| 插件 | ✅ 骨架完成（M1-α：PluginManager + 用户脚本引擎 + iQiyi 示例）；Mac WebView 注入通道/Web 商店 UI 待下轮 |
 | 对等归集同步（A7）、转码、Emby/IPTV、刮削 | ⏳ M1+ |
 
 ## 仓库结构

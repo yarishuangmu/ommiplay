@@ -42,6 +42,14 @@ class CapabilityRegistry {
 
   NodeCapability? findByType(String type) => _byType[type];
 
+  /// 卸载指定 id 的能力（含其全部消息类型映射）。
+  void unregisterById(String id) {
+    for (final entry in _byType.entries.where((e) => e.value.id == id).toList()) {
+      _byType.remove(entry.key);
+    }
+    _capabilities.removeWhere((c) => c.id == id);
+  }
+
   List<Map<String, Object?>> statusList() =>
       _capabilities.map((c) => c.status()).toList();
 }
