@@ -22,6 +22,8 @@ jobs:
           channel: stable
           flutter-version: '3.47.5'
           cache: false
+      - name: Install libsqlite3 (FFI binding for package:sqlite3)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libsqlite3-dev libsqlite3-0
       - name: pub get (workspace, Flutter SDK required for apps/omniplay flutter_test)
         run: flutter pub get
       - name: analyze
@@ -76,6 +78,7 @@ jobs:
       - uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: '12.0'
+          packages: platform-tools platforms;android-34 build-tools;34.0.0
       - name: Accept Android licenses
         run: yes | flutter doctor --android-licenses
       - name: pub get (workspace)
@@ -91,7 +94,7 @@ jobs:
 
   linux-desktop:
     name: Linux desktop bundle
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: apps/omniplay
