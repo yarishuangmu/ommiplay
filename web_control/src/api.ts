@@ -28,6 +28,7 @@ export interface SourceInfo {
   sourceId: string
   name: string
   root: string
+  kind?: string
 }
 
 export interface LibEntry {
@@ -235,6 +236,47 @@ export class PlayerRemote {
   }
   takeover() {
     this.send('player.takeover', {})
+  }
+
+  // —— 语义按键（遥控器方向键/OK/返回…，播放器会话自行映射）——
+  sendKey(key: string) {
+    this.send('player.cmd.key', { key })
+  }
+
+  // —— PC 控制（仿真触控板/键鼠，仅桌面节点）——
+  mouseMove(dx: number, dy: number) {
+    this.send('input.mouseMove', { dx, dy })
+  }
+  mouseClick(button = 'left', doubleClick = false) {
+    this.send('input.mouseClick', { button, doubleClick })
+  }
+  mouseScroll(dx: number, dy: number) {
+    this.send('input.mouseScroll', { dx, dy })
+  }
+  keyPress(key: string) {
+    this.send('input.keyPress', { key })
+  }
+  inputText(text: string) {
+    this.send('input.text', { text })
+  }
+
+  // —— 在线影院（桌面节点内置 WebView 承载）——
+  webOpen(url: string, title?: string) {
+    return this.request('web.open', { url, ...(title ? { title } : {}) })
+  }
+  webClose() {
+    this.send('web.close', {})
+  }
+
+  // —— 系统（重启/睡眠）——
+  restartApp() {
+    this.send('node.cmd.restartApp', {})
+  }
+  rebootSystem() {
+    this.send('node.cmd.rebootSystem', {})
+  }
+  sleepSystem() {
+    this.send('node.cmd.sleepSystem', {})
   }
   close() {
     this.ws?.close()

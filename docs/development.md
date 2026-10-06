@@ -56,7 +56,11 @@ yes | flutter doctor --android-licenses
 - **tray_manager 0.7.0**：主库漏导出自身实现，需直接引 `package:tray_manager/src/…`（代码已处理）。
 - **验证工具**：`cd packages/node_core && dart run tool/probe_node.dart <host> [port]`
   可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）；
-  `dart run tool/link_check.dart <host>` 用本机节点身份验证配对互信与控制面。
+  `dart run tool/link_check.dart <host>` 用本机节点身份验证配对互信与控制面；
+  `dart run tool/e2e_check.dart <host> [port] --pin <PIN> --videoDir <目录> --web <url>`
+  跑全链路验收（配对→加源→浏览→投片→播放推进→语义按键→在线影院）。
+  节点提供回环专用的 `GET /api/pin`（仅 127.0.0.1，返回当前配对 PIN）供自动化脚本取码；
+  Web 控制页已含遥控盘/触控板/键盘/在线影院/电源菜单全功能。
 - **网络源（WebDAV）**：Mac 端「内容源」卡片或手机浏览面板（右上 +）添加，填 `http://nas:5005/dav/媒体/`
   形式地址+账号密码；凭据明文存本节点 SQLite（v1 家庭威胁模型），播放流经源节点代理转发（凭据不下发给播放器）。
   SMB 建议继续用 OS 挂载当本地目录。

@@ -157,6 +157,9 @@ class PlayerSession {
           await adapter.load(kind: _lastLoadKind, value: source, title: _snapshot.title);
         }
         return true;
+      case 'menu':
+        // 预留：M2 电视端 UI 的菜单动作；当前会话无菜单可弹，确认已消费。
+        return true;
       case 'fullscreen':
         final control = systemControl;
         if (control != null) {

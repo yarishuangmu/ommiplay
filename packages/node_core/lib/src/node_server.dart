@@ -92,6 +92,7 @@ class NodeServer {
     final router = Router();
     router.get('/ws', _wsRoute);
     router.post('/api/pair', _apiPair);
+    router.get('/api/pin', _apiPin);
     router.get('/stream/<token>', _streamRoute);
     router.get('/<path|.*>', _staticRoute);
     return router;
@@ -414,6 +415,23 @@ class NodeServer {
   }
 
   // ---------------------------------------------------------------- HTTP --
+
+  /// 开发/自动化辅助：返回当前配对 PIN。**仅限本机回环访问**——
+  /// 等价于"看一眼节点屏幕"，不会把 PIN 暴露给局域网。
+  Future<shelf.Response> _apiPin(shelf.Request request) async {
+    final remote = request.headers['host'] ?? '';
+    final hostPart = remote.split(':').first;
+    final isLoopback = hostPart == '127.0.0.1' || hostPart == 'localhost' || hostPart == '[::1]';
+    if (!isLoopback) {
+      return shelf.Response(403, body: 'loopback only');
+    }
+    final pin = pairing.currentPin;
+    return shelf.Response(
+      pin == null ? 404 : 200,
+      headers: _jsonHeaders,
+      body: jsonEncode(pin == null ? {'ok': false, 'error': '无有效 PIN'} : {'ok': true, 'pin': pin}),
+    );
+  }
 
   Future<shelf.Response> _apiPair(shelf.Request request) async {
     Map<String, Object?> body;

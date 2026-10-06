@@ -233,3 +233,144 @@ select {
 .entries li:hover {
   background: var(--panel-2);
 }
+
+/* 标签页 */
+.tabs {
+  display: flex;
+  gap: 6px;
+  margin: 12px 0;
+}
+
+.tabs button {
+  flex: 1;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.tabs button.active {
+  background: var(--accent);
+  color: white;
+  border-color: transparent;
+}
+
+/* D-pad */
+.dpad {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin: 10px 0;
+}
+
+.dpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 56px);
+  grid-template-rows: repeat(3, 46px);
+  gap: 5px;
+}
+
+.dpad-key {
+  border-radius: 10px;
+  background: var(--panel-2);
+  font-size: 16px;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.dpad-key.ok {
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+
+.dpad-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.dpad-key.wide {
+  width: 72px;
+  height: 44px;
+  font-size: 14px;
+}
+
+/* 触控板 */
+.touch {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.touchpad {
+  height: 260px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  touch-action: none;
+  user-select: none;
+}
+
+.scrollpad {
+  height: 64px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* 键盘 */
+.keys {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 模态 */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+}
+
+.modal-body {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-body .site {
+  text-align: left;
+  padding: 12px;
+  border-radius: 10px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.modal-body .site:hover {
+  background: var(--panel-2);
+}
+
+.row.center {
+  justify-content: center;
+  gap: 12px;
+}

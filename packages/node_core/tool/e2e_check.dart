@@ -10,7 +10,6 @@
 //      → 再 sendKey('playPause') 恢复；
 //   3. 打印每一步 PASS/FAIL 摘要。
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:node_core/node_core.dart';
@@ -20,6 +19,7 @@ Future<void> main(List<String> args) async {
   String? pin;
   String? dataDir;
   String? videoDir;
+  String? webUrl;
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--pin':
@@ -28,6 +28,8 @@ Future<void> main(List<String> args) async {
         dataDir = args[++i];
       case '--videoDir':
         videoDir = args[++i];
+      case '--web':
+        webUrl = args[++i];
       default:
         positional.add(args[i]);
     }
@@ -75,7 +77,7 @@ Future<void> main(List<String> args) async {
     exit(3);
   }
 
-  final remote = remote0!; // 连接失败时已 exit
+  final remote = remote0; // 连接失败时已 exit
   final states = <PlayerStatePayload>[];
   remote.attachStateSink(states.add);
   await _waitFor(() => remote.hello != null);
@@ -101,7 +103,7 @@ Future<void> main(List<String> args) async {
       report('浏览', true, '首个文件=${media.name}');
 
       final stream = await remote.requestStream(sourceId: source.sourceId, path: media.path);
-      final value = stream.url ?? stream.localPath!;
+      final value = stream.url ?? stream.localPath ?? '';
       final kind = stream.url != null ? 'url' : 'file';
       await remote.loadMedia(kind: kind, value: value, title: media.name);
 
@@ -126,6 +128,16 @@ Future<void> main(List<String> args) async {
       await remote.sendKey('fullscreen');
     } on Object catch (e) {
       report('媒体链路', false, e.toString());
+    }
+  }
+
+  // 在线影院：web.open（桌面节点内置 WebView 承载）
+  if (webUrl != null) {
+    try {
+      await remote.webOpen(webUrl, title: 'E2E 在线影院');
+      report('web.open（在线影院）', true, webUrl);
+    } on Object catch (e) {
+      report('web.open（在线影院）', false, e.toString());
     }
   }
 
