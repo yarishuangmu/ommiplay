@@ -33,6 +33,11 @@ jobs:
         run: dart analyze packages
       - name: test
         run: dart test --reporter=expanded packages
+        env:
+          # package:sqlite3 在 Linux CI 上 fallback 到 DynamicLibrary.process()，
+          # 但 dartvm 启动时未链接 libsqlite3，符号 sqlite3_initialize 找不到。
+          # LD_PRELOAD 把系统 libsqlite3.so.0 注进 dartvm 进程命名空间。
+          LD_PRELOAD: /usr/lib/x86_64-linux-gnu/libsqlite3.so.0
 
   web-control:
     name: web_control build
