@@ -83,6 +83,7 @@
 | `input.mouseScroll` | `{dx,dy}` | 滚轮 |
 | `input.keyPress` | `{key}` | 命名按键直通（up/enter/esc/space/f/p/m/volumeUp…），网页里 F=全屏、空格=播放 |
 | `input.text` | `{text}` | 直接键入文本（CGEvent Unicode，中文尽力而为） |
+| `input.gamepad` | `{op, …}` | 手柄仿真（桌面节点按 GamepadProfile 映射为键鼠）：`op=button{button,pressed}` / `op=axis{stick,dx,dy}`（死区 0.35，桥维护按住状态）/ `op=profile{name:'snes'\|'wasd'}`（切换前自动抬起旧按住键）/ `op=reset`。能力正交：经 NodeCapability 注册表路由（docs/capabilities.md） |
 | `web.open` | `{url,title?}` | 桌面节点内置 WebView 打开在线站点（优酷/爱奇艺/腾讯视频/B站），仅桌面支持 |
 | `web.close` | `{}` | 关闭网页窗口 |
 

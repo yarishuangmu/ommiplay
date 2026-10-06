@@ -53,7 +53,13 @@ yes | flutter doctor --android-licenses
   MIUI 锁屏仍可能限制网络（Doze），配对/遥控时保持亮屏效果最佳。可在电池策略中设为"无限制"。
 - **macOS 键鼠控制授权**：首次使用触控板/键盘功能需在"系统设置 → 隐私与安全性 → 辅助功能"
   授权 OmniPlay（CGEvent 事件投递要求），否则事件静默丢失。
-- **tray_manager 0.7.0**：主库漏导出自身实现，需直接引 `package:tray_manager/src/…`（代码已处理）。
+- **tray_manager 0.7.0**：主库漏导出自身实现且标 deprecated，直接引 `package:tray_manager/src/…`
+  （main.dart 已文件级 ignore）。声明式 `Menu(items:[MenuItem(label:, onClick:)])` 可用。
+- **macOS 托盘常驻**：Info.plist `LSUIElement=true`（无 Dock 图标）+ 窗口关闭=隐藏；
+  退出走托盘菜单"退出 OmniPlay"。
+- **手柄仿真**：手机"手柄"标签页 → `input.gamepad` → 桌面 KeyboardMappedGamepadBridge
+  按 Profile（snes=模拟器布局/wasd=PC游戏）映射键鼠；需辅助功能授权。真虚拟 HID（DriverKit）
+  为远期路线 B，协议不变只换桥。
 - **验证工具**：`cd packages/node_core && dart run tool/probe_node.dart <host> [port]`
   可对任意节点做 HTTP/信标/WS 三层探测（WS 用一次性临时身份，被拒=在线且未配对）；
   `dart run tool/link_check.dart <host>` 用本机节点身份验证配对互信与控制面；

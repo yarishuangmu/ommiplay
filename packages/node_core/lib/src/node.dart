@@ -4,9 +4,11 @@ import 'dart:io';
 import 'package:node_protocol/src/envelope.dart';
 import 'package:node_protocol/src/messages.dart';
 
+import 'capability.dart';
 import 'config.dart';
 import 'hlc.dart';
 import 'discovery.dart';
+import 'gamepad.dart';
 import 'identity.dart';
 import 'library.dart';
 import 'node_server.dart';
@@ -39,6 +41,7 @@ class Node {
     this.systemControl,
     this.webPresenter,
     this.inputController,
+    this.gamepadBridge,
   })  : _playerAdapterFactory = playerAdapterFactory,
         _extraChannels = List.of(discoveryChannels);
 
@@ -50,6 +53,12 @@ class Node {
   final SystemControl? systemControl;
   final WebPresenter? webPresenter;
   final InputController? inputController;
+
+  /// 手柄桥（桌面=键鼠映射；移动端=null）。null 时按 inputController 桌面性推断。
+  final GamepadBridge? gamepadBridge;
+
+  /// 正交能力注册表：新能力零改动接入核心路由（docs/capabilities.md）。
+  final CapabilityRegistry capabilities = CapabilityRegistry();
 
   late final NodeStore store;
   late final NodeIdentity identity;
@@ -133,6 +142,12 @@ class Node {
     if (factory != null) {
       session.attach(factory());
     }
+    // 内置正交能力注册（新能力零改动接入，docs/capabilities.md）。
+    final gamepad = gamepadBridge;
+    if (gamepad != null) {
+      capabilities.register(GamepadCapability(gamepad));
+    }
+    server.capabilitiesRegistry.registerAll(capabilities.all);
     await server.start(port: config.httpPort);
 
     final channels = List.of(_extraChannels);

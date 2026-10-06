@@ -16,6 +16,7 @@ import 'library.dart';
 import 'pairing.dart';
 import 'session.dart';
 import 'store.dart';
+import 'capability.dart';
 import 'sources.dart';
 import 'system_control.dart';
 import 'stream_signer.dart';
@@ -47,6 +48,9 @@ class NodeServer {
   final SystemControl? systemControl;
   final WebPresenter? webPresenter;
   final InputController? inputController;
+
+  /// 正交能力注册表（Node 启动时注册内置能力；新能力零改动接入）。
+  final CapabilityRegistry capabilitiesRegistry = CapabilityRegistry();
 
   HttpClient? _upstreamClient;
 
@@ -232,6 +236,19 @@ class NodeServer {
           session.takeover(id: peer.deviceId ?? peer.hashCode.toString(), name: peer.name);
           return;
         default:
+          // 正交能力注册表：新能力（手柄/模拟器/图书馆…）零改动接入核心。
+          final capability = capabilitiesRegistry.findByType(msg.type);
+          if (capability != null) {
+            if (!capability.supported) {
+              _send(peer, MsgTypes.error, {'code': 'capability-unsupported', 'message': capability.id});
+              return;
+            }
+            final handled = await capability.handle(msg);
+            if (!handled) {
+              _send(peer, MsgTypes.error, {'code': 'bad-request', 'message': msg.type});
+            }
+            return;
+          }
           if (msg.type.startsWith('player.cmd.')) {
             final handled = await session.handleCommand(
               type: msg.type,
@@ -251,7 +268,6 @@ class NodeServer {
       _send(peer, MsgTypes.error, {'code': 'not-found', 'message': e.message});
     }
   }
-
   Future<void> _onPinRequest(_Peer peer, Msg msg) async {
     final joinToken = msg.pOrNull<String>('joinToken');
     final pin = msg.pOrNull<String>('pin');

@@ -79,6 +79,12 @@ class MacInputController implements InputController {
   Future<void> keyPress(String key) => _invoke('keyPress', {'key': key});
 
   @override
+  Future<void> keyDown(String key) => _invoke('keyDown', {'key': key});
+
+  @override
+  Future<void> keyUp(String key) => _invoke('keyUp', {'key': key});
+
+  @override
   Future<void> inputText(String text) => _invoke('inputText', {'text': text});
 }
 

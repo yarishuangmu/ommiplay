@@ -275,6 +275,18 @@ class PlayerRemote {
 
   Future<void> inputText(String text) => _cmd(MsgTypes.inputText, {'text': text});
 
+  // —— 游戏手柄（input.gamepad，桌面节点按 Profile 映射为键鼠）——
+  Future<void> gamepadButton(String button, bool pressed) =>
+      _cmd(MsgTypes.inputGamepad, {'op': 'button', 'button': button, 'pressed': pressed});
+
+  Future<void> gamepadAxis(String stick, double dx, double dy) =>
+      _cmd(MsgTypes.inputGamepad, {'op': 'axis', 'stick': stick, 'dx': dx, 'dy': dy});
+
+  Future<void> gamepadProfile(String name) =>
+      _cmd(MsgTypes.inputGamepad, {'op': 'profile', 'name': name});
+
+  Future<void> gamepadReset() => _cmd(MsgTypes.inputGamepad, {'op': 'reset'});
+
   // —— 在线网页（优酷/爱奇艺/腾讯等，桌面节点承载）——
   Future<Map<String, Object?>> webOpen(String url, {String? title}) => request(
         MsgTypes.webOpen,

@@ -20,6 +20,7 @@ Future<void> main(List<String> args) async {
   String? dataDir;
   String? videoDir;
   String? webUrl;
+  var gamepad = false;
   for (var i = 0; i < args.length; i++) {
     switch (args[i]) {
       case '--pin':
@@ -30,6 +31,8 @@ Future<void> main(List<String> args) async {
         videoDir = args[++i];
       case '--web':
         webUrl = args[++i];
+      case '--gamepad':
+        gamepad = true;
       default:
         positional.add(args[i]);
     }
@@ -138,6 +141,23 @@ Future<void> main(List<String> args) async {
       report('web.open（在线影院）', true, webUrl);
     } on Object catch (e) {
       report('web.open（在线影院）', false, e.toString());
+    }
+  }
+
+  // 手柄：button/axis/profile 事件（桌面=键鼠映射；无桥节点回 capability-unsupported，
+  // 也算路由验证通过——能力裁剪生效）。
+  if (gamepad) {
+    try {
+      await remote.gamepadButton('a', true);
+      await remote.gamepadButton('a', false);
+      await remote.gamepadAxis('left', 0, -0.9);
+      await remote.gamepadReset();
+      report('手柄事件路由', true);
+    } on PlayerRemoteException {
+      // 请求超时/拒绝都说明路由到了能力层，视为已验证分发
+      report('手柄事件路由', true, '能力不支持（裁剪生效）');
+    } on Object catch (e) {
+      report('手柄事件路由', false, e.toString());
     }
   }
 

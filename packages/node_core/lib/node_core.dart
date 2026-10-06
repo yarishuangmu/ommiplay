@@ -9,7 +9,9 @@ export 'package:node_protocol/src/envelope.dart';
 export 'package:node_protocol/src/messages.dart';
 
 export 'src/config.dart';
+export 'src/capability.dart';
 export 'src/discovery.dart';
+export 'src/gamepad.dart';
 export 'src/hlc.dart';
 export 'src/identity.dart';
 export 'src/library.dart';

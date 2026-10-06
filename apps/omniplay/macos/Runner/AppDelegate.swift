@@ -37,6 +37,14 @@ class AppDelegate: FlutterAppDelegate {
           let args = call.arguments as? [String: Any] ?? [:]
           AppDelegate.postKey(args["key"] as? String ?? "")
           result(nil)
+        case "keyDown":
+          let args = call.arguments as? [String: Any] ?? [:]
+          AppDelegate.postKey(args["key"] as? String ?? "", keyDown: true)
+          result(nil)
+        case "keyUp":
+          let args = call.arguments as? [String: Any] ?? [:]
+          AppDelegate.postKey(args["key"] as? String ?? "", keyDown: false)
+          result(nil)
         case "inputText":
           let args = call.arguments as? [String: Any] ?? [:]
           AppDelegate.postText(args["text"] as? String ?? "")
@@ -110,15 +118,17 @@ class AppDelegate: FlutterAppDelegate {
     "home": 115, "end": 119, "pageUp": 116, "pageDown": 121,
   ]
 
-  private static func postKey(_ key: String) {
+  private static func postKey(_ key: String, keyDown: Bool) {
     guard let code = keycodes[key.lowercased()] else { return }
-    if let down = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(code), keyDown: true) {
-      down.post(tap: .cghidEventTap)
+    if let event = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(code), keyDown: keyDown) {
+      event.post(tap: .cghidEventTap)
     }
+  }
+
+  private static func postKey(_ key: String) {
+    postKey(key, keyDown: true)
     usleep(20_000)
-    if let up = CGEvent(keyboardEventSource: nil, virtualKey: CGKeyCode(code), keyDown: false) {
-      up.post(tap: .cghidEventTap)
-    }
+    postKey(key, keyDown: false)
   }
 
   private static func postText(_ text: String) {

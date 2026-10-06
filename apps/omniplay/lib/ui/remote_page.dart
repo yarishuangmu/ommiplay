@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:node_core/node_core.dart';
@@ -214,7 +215,7 @@ class RemoteControlScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: Text('遥控：$targetName'),
@@ -230,9 +231,10 @@ class RemoteControlScreen extends StatelessWidget {
               icon: const Icon(Icons.power_settings_new),
             ),
           ],
-          bottom: const TabBar(tabs: [
+          bottom: const TabBar(isScrollable: true, tabs: [
             Tab(icon: Icon(Icons.dialpad), text: '遥控盘'),
             Tab(icon: Icon(Icons.touch_app), text: '触控板'),
+            Tab(icon: Icon(Icons.gamepad_outlined), text: '手柄'),
             Tab(icon: Icon(Icons.keyboard_outlined), text: '键盘'),
           ]),
         ),
@@ -251,6 +253,7 @@ class RemoteControlScreen extends StatelessWidget {
                 ),
               ),
               _TouchpadTab(remote: remote),
+              _GamepadTab(remote: remote),
               _KeyboardTab(remote: remote),
             ],
           ),
@@ -598,6 +601,225 @@ class ScanPairPage extends StatelessWidget {
             return;
           }
         },
+      ),
+    );
+  }
+}
+
+/// 游戏手柄（M0-γ）：ABXY/十字键/LR/Start + 双摇杆，经 input.gamepad 投到桌面节点。
+/// 桌面端按 GamepadProfile（snes/wasd）映射为键鼠——模拟器与 PC 游戏开箱即用。
+class _GamepadTab extends StatefulWidget {
+  const _GamepadTab({required this.remote});
+
+  final PlayerRemote remote;
+
+  @override
+  State<_GamepadTab> createState() => _GamepadTabState();
+}
+
+class _GamepadTabState extends State<_GamepadTab> {
+  String _profile = 'snes';
+  final Map<String, Offset?> _stickPos = {'left': null, 'right': null};
+
+  static const double _stickRadius = 52;
+
+  void _button(String button, bool pressed) {
+    widget.remote.gamepadButton(button, pressed);
+    HapticFeedback.selectionClick();
+  }
+
+  void _axis(String stick, Offset localPosition, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    var delta = (localPosition - center) / (size.shortestSide / 2);
+    final magnitude = delta.distance;
+    if (magnitude > 1) delta = delta / magnitude;
+    _stickPos[stick] = center + delta * (size.shortestSide / 2);
+    widget.remote.gamepadAxis(stick, delta.dx, delta.dy);
+    setState(() {});
+  }
+
+  void _axisRelease(String stick) {
+    _stickPos[stick] = null;
+    widget.remote.gamepadAxis(stick, 0, 0);
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    Widget faceButton(String label, String key, Color color, {required Alignment align}) =>
+        Align(
+          alignment: align,
+          child: GestureDetector(
+            onTapDown: (_) => _button(key, true),
+            onTapUp: (_) => _button(key, false),
+            onTapCancel: () => _button(key, false),
+            child: Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.75), shape: BoxShape.circle),
+              alignment: Alignment.center,
+              child: Text(label, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            ),
+          ),
+        );
+
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (final name in const ['snes', 'wasd'])
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: ChoiceChip(
+                      label: Text(name.toUpperCase()),
+                      selected: _profile == name,
+                      onSelected: (selected) {
+                        if (!selected) return;
+                        setState(() => _profile = name);
+                        widget.remote.gamepadProfile(name);
+                      },
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                OutlinedButton(
+                  onPressed: () => widget.remote.gamepadReset(),
+                  child: const Text('复位'),
+                ),
+              ],
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _button('l2', true),
+                          child: const Text('L2'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => _button('r2', true),
+                          child: const Text('R2'),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _button('l1', true),
+                          child: const Text('L1'),
+                        ),
+                        OutlinedButton(
+                          onPressed: () => _button('r1', true),
+                          child: const Text('R1'),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                      child: Row(
+                        children: [
+                          // 左摇杆
+                          Expanded(
+                            child: LayoutBuilder(
+                              builder: (context, constraints) => GestureDetector(
+                                onPanDown: (d) => _axis('left', d.localPosition, constraints.biggest),
+                                onPanUpdate: (d) => _axis('left', d.localPosition, constraints.biggest),
+                                onPanEnd: (_) => _axisRelease('left'),
+                                onPanCancel: () => _axisRelease('left'),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: scheme.surfaceContainerHighest,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Stack(
+                                    children: [
+                                      Center(child: Text('左摇杆', style: TextStyle(color: scheme.outline))),
+                                      if (_stickPos['left'] != null)
+                                        Positioned(
+                                          left: _stickPos['left']!.dx - _stickRadius / 2,
+                                          top: _stickPos['left']!.dy - _stickRadius / 2,
+                                          child: Container(
+                                            width: _stickRadius,
+                                            height: _stickRadius,
+                                            decoration: BoxDecoration(
+                                              color: scheme.primary.withValues(alpha: 0.6),
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          // ABXY 菱形
+                          SizedBox(
+                            width: 160,
+                            child: Column(
+                              children: [
+                                faceButton('Y', 'y', scheme.tertiary, align: Alignment.center),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    faceButton('X', 'x', scheme.secondary, align: Alignment.centerLeft),
+                                    faceButton('B', 'b', scheme.error, align: Alignment.centerRight),
+                                  ],
+                                ),
+                                faceButton('A', 'a', scheme.primary, align: Alignment.center),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // 十字键 + Start/Select
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          children: [
+                            OutlinedButton(onPressed: () => _button('dpad_up', true), child: const Text('↑')),
+                            Row(
+                              children: [
+                                OutlinedButton(onPressed: () => _button('dpad_left', true), child: const Text('←')),
+                                const SizedBox(width: 6),
+                                OutlinedButton(onPressed: () => _button('dpad_right', true), child: const Text('→')),
+                              ],
+                            ),
+                            OutlinedButton(onPressed: () => _button('dpad_down', true), child: const Text('↓')),
+                          ],
+                        ),
+                        Column(
+                          children: [
+                            FilledButton.tonal(
+                              onPressed: () => _button('start', true),
+                              child: const Text('START'),
+                            ),
+                            const SizedBox(height: 8),
+                            FilledButton.tonal(
+                              onPressed: () => _button('select', true),
+                              child: const Text('SELECT'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -1,3 +1,6 @@
+// tray_manager 0.7.0 主库漏导出自身实现且标记 deprecated，托盘能力经 src 路径使用（包缺陷，见 docs/development.md）。
+// ignore_for_file: deprecated_member_use
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -5,15 +8,15 @@ import 'package:media_kit/media_kit.dart';
 import 'package:node_core/node_core.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-// tray_manager 0.7.0 主库漏导出自身实现（TrayManager/TrayListener），直接引 src。
-// ignore: implementation_imports
-import 'package:tray_manager/src/tray_listener.dart';
-// ignore: implementation_imports
-import 'package:tray_manager/src/tray_manager.dart';
+// tray_manager 0.7.0 主库漏导出自身实现（Menu/TrayManager/TrayListener），直接引 src。
+import 'package:tray_manager/src/menu.dart' as t; // ignore: implementation_imports
+import 'package:tray_manager/src/tray_listener.dart' as t; // ignore: implementation_imports
+import 'package:tray_manager/src/tray_manager.dart' as t; // ignore: implementation_imports
 import 'package:window_manager/window_manager.dart';
 
 import 'app_model.dart';
 import 'services/bonsoir_discovery.dart';
+import 'services/gamepad_bridge.dart';
 import 'services/keep_awake.dart';
 import 'services/mac_system_control.dart';
 import 'services/mpv_adapter.dart';
@@ -38,6 +41,9 @@ Future<void> main() async {
       await windowManager.show();
       await windowManager.focus();
     });
+    // 托盘常驻（M0-γ）：关闭窗口=隐藏面板，服务不死。
+    await windowManager.setPreventClose(true);
+    windowManager.addListener(_WindowListener());
   }
 
   final supportDir = await getApplicationSupportDirectory();
@@ -47,6 +53,9 @@ Future<void> main() async {
   final SystemControl systemControl = isMac ? MacSystemControl() : AndroidSystemControl();
   final InputController? inputController = isMac ? MacInputController() : null;
   final WebPresenter? webPresenter = isMac ? DesktopWebPresenter() : null;
+  // 手柄桥：键鼠映射（模拟器/支持键位的 PC 游戏）；真 HID（DriverKit）为远期路线 B。
+  final GamepadBridge? gamepadBridge =
+      (isMac && inputController != null) ? KeyboardGamepadBridge(inputController) : null;
 
   final node = Node(
     config: NodeConfig(
@@ -58,6 +67,7 @@ Future<void> main() async {
     systemControl: systemControl,
     webPresenter: webPresenter,
     inputController: inputController,
+    gamepadBridge: gamepadBridge,
   );
   await node.start();
 
@@ -85,23 +95,67 @@ Future<void> main() async {
   }
 
   final model = AppModel(node: node, myName: node.config.name);
+  _sharedModel = model;
   runApp(OmniPlayApp(model: model));
 }
 
-/// 系统托盘（macOS，M0-β）：点击托盘图标调回主窗口。
+/// 共享模型（托盘菜单回调使用，main 中赋值）。
+AppModel? _sharedModel;
+
+/// 系统托盘（macOS，M0-γ）：左键呼出主面板；右键菜单=面板/播放暂停/PIN/退出。
 void _setupTray() {
-  // ignore: deprecated_member_use
-  final tray = TrayManager.instance;
+  final tray = t.TrayManager.instance;
   tray.setIcon('assets/tray_icon.png');
   tray.addListener(_TrayHandler());
+
+  void showPanel() {
+    windowManager.show();
+    windowManager.focus();
+  }
+
+  tray.setContextMenu(
+    t.Menu(
+      items: [
+        t.MenuItem(label: '显示主面板', onClick: (_) => showPanel()),
+        t.MenuItem(
+          label: '播放 / 暂停',
+          onClick: (_) {
+            final player = _sharedModel?.localPlayer;
+            final snapshot = _sharedModel?.localSnapshot;
+            if (player != null && snapshot != null) {
+              snapshot.state == PlaybackStateName.playing
+                  ? player.pause()
+                  : player.play();
+            }
+          },
+        ),
+        t.MenuItem(
+          label: '显示配对 PIN',
+          onClick: (_) {
+            showPanel();
+            _sharedModel?.refreshPin();
+          },
+        ),
+        t.MenuItem.separator(),
+        t.MenuItem(label: '退出 OmniPlay', onClick: (_) => windowManager.destroy()),
+      ],
+    ),
+  );
 }
 
-// ignore: deprecated_member_use
-class _TrayHandler with TrayListener {
+class _TrayHandler with t.TrayListener {
   @override
   void onTrayIconMouseDown() {
     windowManager.show();
     windowManager.focus();
+  }
+}
+
+class _WindowListener with WindowListener {
+  @override
+  void onWindowClose() async {
+    // 托盘常驻：窗口关闭按钮=隐藏面板。
+    await windowManager.hide();
   }
 }
 

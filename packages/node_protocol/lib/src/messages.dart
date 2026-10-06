@@ -46,6 +46,7 @@ abstract final class MsgTypes {
   static const inputMouseScroll = 'input.mouseScroll';
   static const inputKeyPress = 'input.keyPress';
   static const inputText = 'input.text';
+  static const inputGamepad = 'input.gamepad';
 
   // —— 在线网页（优酷/爱奇艺/腾讯等，桌面节点内置 WebView 承载）——
   static const webOpen = 'web.open';

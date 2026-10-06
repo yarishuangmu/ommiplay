@@ -32,6 +32,12 @@ abstract class InputController {
   /// 命名按键：up/down/left/right/enter/esc/space/f/p/m/volumeUp/volumeDown…
   Future<void> keyPress(String key);
 
+  /// 按下不抬起（手柄摇杆/方向键按住语义）。
+  Future<void> keyDown(String key) async {}
+
+  /// 抬起（与 keyDown 配对）。
+  Future<void> keyUp(String key) async {}
+
   /// 直接键入文本（CGEvent Unicode，中文尽力而为）。
   Future<void> inputText(String text);
 }
