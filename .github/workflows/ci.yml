@@ -11,6 +11,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   dart:
     name: dart analyze + test
@@ -161,3 +164,54 @@ jobs:
           path: apps/omniplay/build/windows/x64/runner/Release
           if-no-files-found: error
           retention-days: 14
+
+  release:
+    name: GitHub Release (nightly, draft)
+    needs: [dart, web-control, android-apk, linux-desktop, windows-desktop]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Compute tag metadata
+        id: meta
+        run: |
+          echo "short_sha=${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+          echo "datetime=$(date -u +%Y%m%d-%H%M%S)" >> "$GITHUB_OUTPUT"
+          echo "commit_msg=$(git log -1 --pretty=%s)" >> "$GITHUB_OUTPUT"
+      - name: Download all platform artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: omniplay-*
+          path: artifacts
+      - name: Download web-control artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: web-control-dist
+          path: artifacts/web-control-dist
+      - name: List downloaded artifacts
+        run: |
+          echo "tree:"
+          find artifacts -maxdepth 4 -type d
+          echo "---"
+          echo "sizes:"
+          du -sh artifacts/* 2>&1 | head -20
+      - name: Create draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly-${{ steps.meta.outputs.datetime }}-${{ steps.meta.outputs.short_sha }}
+          name: "Nightly ${{ steps.meta.outputs.datetime }} (${{ steps.meta.outputs.short_sha }})"
+          body: |
+            Nightly build from ${{ github.repository }}@${{ steps.meta.outputs.short_sha }}.
+
+            **Commit:** `${{ steps.meta.outputs.commit_msg }}`
+            **Triggered by:** @${{ github.actor }}
+            **Workflow run:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+            This release is created as a **draft** for manual review before publishing.
+          draft: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/omniplay-android-apk/**
+            artifacts/omniplay-linux/**
+            artifacts/omniplay-windows/**
+            artifacts/web-control-dist/**
