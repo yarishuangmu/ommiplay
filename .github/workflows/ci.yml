@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dart:
+    name: dart analyze + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: ^3.13.0
+      - name: pub get (workspace)
+        run: dart pub get
+      - name: analyze
+        run: dart analyze packages
+      - name: test
+        run: dart test --reporter=expanded packages
+
+  web-control:
+    name: web_control build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web_control
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: web_control/pnpm-lock.yaml
+      - name: install
+        run: pnpm install --frozen-lockfile
+      - name: build
+        run: pnpm build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: web-control-dist
+          path: web_control/dist
+          if-no-files-found: error
+          retention-days: 7
